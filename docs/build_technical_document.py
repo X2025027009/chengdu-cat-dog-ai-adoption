@@ -44,12 +44,12 @@ LINE = "C4BCB2"
 
 FIG_MAP = {
     1: FIGURES / "fig1-architecture.png",
-    2: FIGURES / "fig2-ai-paths.png",
-    3: FIGURES / "fig3-agent-sequence.png",
-    4: FIGURES / "fig4-data-channels.png",
-    5: FIGURES / "fig5-rag-index.png",
-    6: FIGURES / "fig6-data-permissions.png",
-    7: FIGURES / "fig7-embedding-test.png",
+    2: FIGURES / "fig6-data-permissions.png",
+    3: FIGURES / "fig4-data-channels.png",
+    4: FIGURES / "fig7-embedding-test.png",
+    5: FIGURES / "fig3-agent-sequence.png",
+    6: FIGURES / "fig5-rag-index.png",
+    7: FIGURES / "fig2-ai-paths.png",
     8: SHOTS / "fig8-match.png",
     9: SHOTS / "fig9-review.png",
     10: SHOTS / "fig10-photo.png",
@@ -455,8 +455,8 @@ def add_toc(doc):
 def parse_table(lines, start):
     raw = []
     i = start
-    while i < len(lines) and lines[i].lstrip().startswith("|"):
-        raw.append(lines[i].strip())
+    while i < len(lines) and is_table_line(lines[i]):
+        raw.append(re.sub(r"^>\s*", "", lines[i].strip()))
         i += 1
     rows = []
     for idx, line in enumerate(raw):
@@ -465,6 +465,10 @@ def parse_table(lines, start):
             continue
         rows.append(values)
     return rows, i
+
+
+def is_table_line(line):
+    return re.sub(r"^>\s*", "", line.strip()).startswith("|")
 
 
 def build_body(doc):
@@ -482,7 +486,10 @@ def build_body(doc):
         if not paragraph_buffer:
             return
         p = doc.add_paragraph(style="Body Compact")
-        add_inline(p, "".join(part.strip() for part in paragraph_buffer))
+        content = "".join(part.strip() for part in paragraph_buffer)
+        if re.match(r"^\*\*[一二三四五六七八九十]、", content):
+            p.paragraph_format.keep_with_next = True
+        add_inline(p, content)
         paragraph_buffer = []
 
     while i < len(lines):
@@ -517,14 +524,12 @@ def build_body(doc):
             flush_paragraph()
             number = int(m_fig.group(1))
             title = m_fig.group(2).strip()
-            caption_parts = []
             j = i + 1
-            while j < len(lines) and lines[j].startswith(">") and "【插入" not in lines[j]:
-                cap = re.sub(r"^>\s*图注：?", "", lines[j]).strip()
-                if cap:
-                    caption_parts.append(cap)
+            caption = ""
+            if j < len(lines) and re.match(r"^>\s*图注：?", lines[j]):
+                caption = re.sub(r"^>\s*图注：?", "", lines[j]).strip()
                 j += 1
-            add_figure(doc, number, title, "".join(caption_parts))
+            add_figure(doc, number, title, caption)
             i = j
             continue
 
@@ -535,7 +540,7 @@ def build_body(doc):
             i += 1
             continue
 
-        if line.lstrip().startswith("|"):
+        if is_table_line(line):
             flush_paragraph()
             rows, i = parse_table(lines, i)
             caption = pending_table or "图表清单"
@@ -588,6 +593,9 @@ def build_body(doc):
         if line.startswith(">"):
             flush_paragraph()
             text = re.sub(r"^>\s?", "", line)
+            if not text.strip():
+                i += 1
+                continue
             p = doc.add_paragraph()
             p.paragraph_format.left_indent = Cm(0.45)
             p.paragraph_format.right_indent = Cm(0.45)

@@ -5,7 +5,10 @@
 
 线上地址：<https://chuanzhibei-d3gvmowp1e63d7f33-1470251683.tcloudbaseapp.com/>
 
-进入页面后点导航栏的「AI 匹配」，可以看到 AI 部分。
+当前本地代码已拆为七个真实页面，AI 匹配可直接打开 `match.html`，不再依赖首页锚点。
+多页版本尚待委托方审核、同步发布源与部署；部署完成后，线上独立入口才是
+[`/match.html`](https://chuanzhibei-d3gvmowp1e63d7f33-1470251683.tcloudbaseapp.com/match.html)。
+本地审核版不调用真实 AI 服务。
 
 ---
 
@@ -39,13 +42,13 @@ AI 部分就是针对这两件事做的。
 
 模型可以调用六个工具查数据，而不是靠预先塞进提示词的内容作答：
 
-| 工具 | 用途 |
-| --- | --- |
-| `search_knowledge` | 按语义检索小院全部文字资料 |
-| `search_pets` | 按种类、性别、关键词检索宠物 |
-| `get_pet_profile` | 读取某只宠物的完整档案 |
-| `get_adoption_policy` | 读取领养政策原文 |
-| `get_follow_up_history` | 读取某只宠物的回访记录 |
+| 工具                     | 用途                             |
+| ------------------------ | -------------------------------- |
+| `search_knowledge`       | 按语义检索小院全部文字资料       |
+| `search_pets`            | 按种类、性别、关键词检索宠物     |
+| `get_pet_profile`        | 读取某只宠物的完整档案           |
+| `get_adoption_policy`    | 读取领养政策原文                 |
+| `get_follow_up_history`  | 读取某只宠物的回访记录           |
 | `check_requirement_gaps` | 把访客自述与常见领养要求逐条对照 |
 
 工具由模型自己决定调哪个、调几次。实测问「我适合哪只猫」时，
@@ -116,19 +119,19 @@ AI 部分就是针对这两件事做的。
 
 参赛期间新增的提交（按时间顺序，节选）：
 
-| 提交 | 内容 |
-| --- | --- |
-| `feat(ai): 新增 AI 流式代理云函数 ai-stream` | SSE 流式代理、限频、隐私边界 |
-| `feat(ai): 阶段 1 — 工具层与 Function Calling` | 六个工具、Agent 循环 |
-| `feat(ai): 阶段 2 — RAG 语义检索` | pgvector、按字段切块、依据展示 |
-| `feat(ai): 阶段 3 — 管理员侧审核 Agent` | 自主规划审核步骤 |
-| `feat(ai): 阶段 4 — 多模态` | 语音、照片理解、以图搜宠 |
-| `chore(quality): 引入 ESLint + Prettier` | 代码规范工具与 4 处问题修复 |
+| 提交                                           | 内容                           |
+| ---------------------------------------------- | ------------------------------ |
+| `feat(ai): 新增 AI 流式代理云函数 ai-stream`   | SSE 流式代理、限频、隐私边界   |
+| `feat(ai): 阶段 1 — 工具层与 Function Calling` | 六个工具、Agent 循环           |
+| `feat(ai): 阶段 2 — RAG 语义检索`              | pgvector、按字段切块、依据展示 |
+| `feat(ai): 阶段 3 — 管理员侧审核 Agent`        | 自主规划审核步骤               |
+| `feat(ai): 阶段 4 — 多模态`                    | 语音、照片理解、以图搜宠       |
+| `chore(quality): 引入 ESLint + Prettier`       | 代码规范工具与 4 处问题修复    |
 
 ## 技术架构
 
 ```text
-浏览器（原生 JS 单页 + 响应式 CSS）
+浏览器（原生 JS 多页静态站点 + 响应式 CSS）
   │
   ├─ 匿名会话 ──→ CloudBase 网关 ──→ 云函数 yard-api（Event）
   │                                    ├─ PostgreSQL（RLS 策略约束权限）
@@ -145,15 +148,33 @@ AI 部分就是针对这两件事做的。
   └─ 语音 ──→ 浏览器原生 Web Speech API（不经服务端）
 ```
 
-| 层 | 选型 | 说明 |
-| --- | --- | --- |
-| 前端 | 原生 JS + CSS，无构建步骤 | 首屏轻，复用既有设计系统 |
-| 业务后端 | 云函数 `yard-api`（Event） | 申请提交、令牌校验、后台接口 |
-| AI 后端 | 云函数 `ai-stream`（HTTP） | SSE 流式只在 HTTP 云函数可用 |
-| 数据库 | CloudBase PostgreSQL 17.11 | 全部表启用 RLS |
-| 向量检索 | pgvector 0.8.2 | 文本 1024 维、照片 2048 维 |
-| 对象存储 | 桶 `yard-media` | 仅存宠物影像与二维码 |
-| 部署 | CloudBase 静态托管 | 发布 `release/` 下三个文件 |
+| 层       | 选型                                    | 说明                             |
+| -------- | --------------------------------------- | -------------------------------- |
+| 前端     | 原生 JS + CSS，多页静态站点，无构建步骤 | 每页一个真实 URL，共享样式与脚本 |
+| 业务后端 | 云函数 `yard-api`（Event）              | 申请提交、令牌校验、后台接口     |
+| AI 后端  | 云函数 `ai-stream`（HTTP）              | SSE 流式只在 HTTP 云函数可用     |
+| 数据库   | CloudBase PostgreSQL 17.11              | 全部表启用 RLS                   |
+| 向量检索 | pgvector 0.8.2                          | 文本 1024 维、照片 2048 维       |
+| 对象存储 | 桶 `yard-media`                         | 仅存宠物影像与二维码             |
+| 部署     | CloudBase 静态托管                      | 委托方统一同步 `release/` 并部署 |
+
+### 页面结构
+
+页面之间使用普通链接跳转，不引入前端框架或构建步骤。七个页面共享
+`app.js`、`styles.css` 与 `site-config.js`，页面和共享资源均使用相对路径。
+
+| 页面            | 职责                                       |
+| --------------- | ------------------------------------------ |
+| `index.html`    | 首页、小院概况、特色宠物与各功能入口       |
+| `pets.html`     | 宠物筛选、档案详情与领养或预约申请入口     |
+| `match.html`    | AI 匹配对话、以图搜宠与支持时的语音输入    |
+| `adoption.html` | 领养流程、申请前准备与申请自助修改入口     |
+| `stories.html`  | 已领养档案、回访记录与近况                 |
+| `about.html`    | 小院介绍、团队合影与联系方式               |
+| `admin.html`    | 独立管理员工作台，维护档案、申请与网站设置 |
+
+拆页让每项功能有可直接分享和重新打开的地址，避免导航、浏览与 AI 对话等任务
+集中在同一长页面中；访客无需穿过其他功能区就能找到当前页面的主要内容。
 
 ### 为什么 AI 单独一个云函数
 
@@ -165,16 +186,16 @@ SSE 流式响应只在 HTTP 云函数上支持，所以 AI 代理单独部署。
 
 ### 云端资源
 
-| 项 | 值 |
-| --- | --- |
-| 平台 | 腾讯云 CloudBase（云开发） |
-| 环境 ID | `chuanzhibei-d3gvmowp1e63d7f33` |
-| 地域 | `ap-shanghai` |
-| 数据库 | PostgreSQL RDB，schema `public` |
-| 已启用扩展 | `vector` 0.8.2 |
-| 对象存储 | 桶 `yard-media` |
-| 云函数 | `yard-api`（Event）· `ai-stream`（HTTP） |
-| 静态托管 | 根目录，发布源为 `release/` |
+| 项         | 值                                       |
+| ---------- | ---------------------------------------- |
+| 平台       | 腾讯云 CloudBase（云开发）               |
+| 环境 ID    | `chuanzhibei-d3gvmowp1e63d7f33`          |
+| 地域       | `ap-shanghai`                            |
+| 数据库     | PostgreSQL RDB，schema `public`          |
+| 已启用扩展 | `vector` 0.8.2                           |
+| 对象存储   | 桶 `yard-media`                          |
+| 云函数     | `yard-api`（Event）· `ai-stream`（HTTP） |
+| 静态托管   | 根目录，发布源为 `release/`              |
 
 ### 环境变量模板
 
@@ -185,16 +206,16 @@ SSE 流式响应只在 HTTP 云函数上支持，所以 AI 代理单独部署。
 
 ### 需要配置的项
 
-| 配置项 | 位置 | 说明 |
-| --- | --- | --- |
-| 匿名登录 | 控制台 → 身份认证 → 登录方式 | 必须开启，否则访客无法建立会话 |
-| 云函数安全规则 | 控制台 → 云函数 → 权限控制 | 必须设为 `{"*": {"invoke": true}}` |
-| 用户名密码登录 | 控制台 → 身份认证 → 登录方式 | 管理员登录用 |
-| 管理员 UID | 数据库 `public.yard_administrators` | 与认证用户 UID 对应，`active = true` |
-| 企业微信机器人地址 | 管理员后台 → 网站设置 | 存数据库，不进代码与配置文件 |
-| 对话模型 Key | 管理员后台 → 网站设置 | 存数据库 `yard_settings.ai_config` |
-| TokenHub Key | 管理员后台 → 网站设置 | 向量检索与图像理解用 |
-| 前端可发布密钥 | `index.html` → `window.YARD_CLOUD_CONFIG` | Publishable Key，权限仅 `anon` |
+| 配置项             | 位置                                          | 说明                                 |
+| ------------------ | --------------------------------------------- | ------------------------------------ |
+| 匿名登录           | 控制台 → 身份认证 → 登录方式                  | 必须开启，否则访客无法建立会话       |
+| 云函数安全规则     | 控制台 → 云函数 → 权限控制                    | 必须设为 `{"*": {"invoke": true}}`   |
+| 用户名密码登录     | 控制台 → 身份认证 → 登录方式                  | 管理员登录用                         |
+| 管理员 UID         | 数据库 `public.yard_administrators`           | 与认证用户 UID 对应，`active = true` |
+| 企业微信机器人地址 | 管理员后台 → 网站设置                         | 存数据库，不进代码与配置文件         |
+| 对话模型 Key       | 管理员后台 → 网站设置                         | 存数据库 `yard_settings.ai_config`   |
+| TokenHub Key       | 管理员后台 → 网站设置                         | 向量检索与图像理解用                 |
+| 前端可发布密钥     | `site-config.js` → `window.YARD_CLOUD_CONFIG` | Publishable Key，权限仅 `anon`       |
 
 两个「只在运行时才暴露」的设置，这里单独说明：
 
@@ -222,17 +243,30 @@ node tools/fn-security-rule.cjs apply      # 设为 {"*":{"invoke":true}}
 
 ## 本地运行
 
-站点是纯静态的，没有构建步骤：
+站点是纯静态的，没有构建步骤。审核时使用仅监听本机、仅提供公开站点文件的预览服务：
 
 ```bash
 git clone <repo>
 cd <repo>
-npx serve .          # 或任意静态服务器，例如 python -m http.server 8000
+npm install
+npm run preview:local
 ```
 
-打开提示的地址即可。云端数据来自线上环境，本地不需要跑后端。
+打开 <http://127.0.0.1:4173/>，可直接访问七个页面。不要用 `npx serve .` 或
+仓库根目录的通用文件服务器替代，以免把文档、配置、Git 目录等非公开文件暴露出去。
+
+`site-config.js` 在本机地址和 `file:` 下启用审核模式：不加载 CloudBase SDK，
+不连接业务云端，示例数据和编辑草稿仅保存在当前浏览器的 `localStorage`，不会同步线上。
+AI 匹配、照片比对、管理员 AI 操作和语音识别不在本地审核中调用；相关按钮会隐藏或提示不可用。
+预览仍可能加载外部字体和示例图片，不等于所有资源均离线。
+请勿在本地示例中填写真实密钥或私人联系方式。
 
 ## 部署
+
+本节仅供委托方执行。Codex 不修改、复制或删除 `release/`，不执行云端部署，
+也不在本地审核阶段执行线上写入或模型测试。先审核根目录源码，再由委托方统一同步
+七个 HTML 页面、`app.js`、`site-config.js`、`styles.css` 与 `assets/` 到发布源，
+避免两方覆盖同一份发布文件。以下操作须由具有云端权限的委托方按实际环境确认后执行。
 
 ```bash
 npm install
@@ -263,54 +297,89 @@ node_modules/.bin/cloudbase hosting deploy release -e $ENV --verify
 HTTP 云函数需要有 `scf_bootstrap` 启动文件（已随代码提交），应用监听 9000 端口。
 另外默认超时只有 3 秒，SSE 会被截断，`cloudbaserc.json` 中已设为 60 秒。
 
+委托方同步发布源后可单独运行 `npm run test:release:offline` 比对本地与发布源；
+部署后再执行 `npm run test:online` 和 `npm run test:live`，验收线上哈希、页面与业务通路。
+发布源未同步时的差异属于待发布状态，不能因此自行修改 `release/`。
+
 ## 代码规范
 
 ```bash
 npm run lint          # ESLint，当前 0 problem
 npm run format        # Prettier
+npm run format:check  # 只检查格式
 ```
 
-站点三个文件（`index.html`、`app.js`、`styles.css`）刻意不做 Prettier 全量重排，
+原有三个文件（`index.html`、`app.js`、`styles.css`）保留 `.prettierignore` 中的排版例外，
 原因写在 `.prettierignore` 里：HTML 空白符会影响内联元素排版，
-重排有渲染风险；CSS 现有的一属性一行写法更可读。这三个文件的代码质量由 ESLint 覆盖。
+重排有渲染风险；CSS 现有的一属性一行写法更可读。新增六页与 `site-config.js` 仍接受
+Prettier 检查，没有扩大忽略范围。ESLint 检查 `app.js`、`site-config.js` 等 JavaScript，
+HTML 和 CSS 则另有多页结构检查与浏览器验收，不能声称由 ESLint 检查它们。
+
+后续改动遵循 [`AGENTS.md`](AGENTS.md)：保留既有测试，按职责作中文类型前缀的本地提交，
+每次提交前通过 lint、格式、多页、仓库合规和离线回归；代码定稿提交后再统一同步文档。
+未经明确授权不推送、不调用线上写入测试，发布始终由委托方负责。
 
 ## 测试
 
-验证脚本直接运行，不依赖测试框架。
+验证脚本直接运行，不依赖测试框架，按副作用分成三档，不能把线上检查混入默认离线回归。
 
 ```bash
-# 整站回归
+# 默认完全离线回归（不发起网络请求）
 npm test
 
-# 单元测试
+# 仅离线单元测试（默认回归已包含）
 npm run test:unit
 
-# 工具冒烟（逐个跑一遍云函数里的 AI 工具）
-npm run health:tools
+# 委托方部署后的只读线上检查
+npm run test:online
+
+# 委托方显式执行：写入云端并消耗模型额度
+npm run test:live
+
+# 独立检查根目录与发布源，不访问线上；不是 npm test 的组成部分
+npm run test:release:offline
 ```
 
-单项脚本：
+本轮实际运行的 `npm test` 共 **510 项通过、0 项失败**，耗时约 **7.4 秒**
+（约 7–8 秒，随机器与历史提交数量变化）。组成如下：
 
-| 脚本 | 项数 | 覆盖 |
-| --- | --- | --- |
-| `check-release-sync.cjs` | 6 | 根目录与发布源、线上文件是否一致 |
-| `check-admin-settings.cjs` | 16 | 后台表单结构完整性 |
-| `check-ai-preview.cjs` | 21 | 页面结构、设计系统、AI 面板 |
-| `probe-browser-path.cjs` | 5 | 浏览器真实通路 |
-| `test-ai-chat.cjs` | 24 | SSE 协议、流式真实性、隐私边界 |
-| `test-ai-tools.cjs` | 19 | Function Calling、多步规划、语义检索 |
-| `test-knowledge.cjs` | 23 | 切块、索引重建、阈值过滤、降级 |
-| `test-vision-guards.cjs` | 15 | 以图搜宠的地址白名单与绕过尝试 |
-| `test-wecom-notify.cjs` | 56 | 企业微信提醒内容与降级 |
-| `test-tc3-signing.cjs` | 51 | 云 API 签名 |
-| `test-admin-applicant-edit.cjs` | 24 | 管理员代改申请人资料 |
-| `verify-anon-lockdown.cjs` | 6 | 匿名直写入口已关闭 |
+| 离线脚本                        | 项数 | 覆盖                                       |
+| ------------------------------- | ---- | ------------------------------------------ |
+| `check-admin-settings.cjs`      | 16   | 后台表单结构完整性                         |
+| `check-multipage.cjs`           | 277  | 七页职责、导航、共享资源与相对路径         |
+| `test-local-review.cjs`         | 17   | 本地模式隔离、云端请求拦截与预览文件白名单 |
+| `check-repo-compliance.cjs`     | 31   | 密钥、Git 历史、仓库整洁与 README          |
+| `test-knowledge.cjs`            | 23   | 切块、索引重建、阈值过滤、降级             |
+| `test-vision-guards.cjs`        | 15   | 以图搜宠的地址白名单与绕过尝试             |
+| `test-tc3-signing.cjs`          | 51   | 云 API 签名                                |
+| `test-wecom-notify.cjs`         | 56   | 企业微信提醒内容与降级                     |
+| `test-admin-applicant-edit.cjs` | 24   | 管理员代改申请人资料                       |
+
+以下两档本轮**未执行**，不把历史项数记作当前通过结果：
+
+| 档位          | 完整脚本清单                                                                                  | 副作用与执行方                                             |
+| ------------- | --------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| `test:online` | `check-release-sync.cjs`、`check-ai-preview.cjs`                                              | 只读 GET；委托方部署后核对发布哈希、独立页面与 AI 健康信息 |
+| `test:live`   | `probe-browser-path.cjs`、`test-ai-chat.cjs`、`test-ai-tools.cjs`、`verify-anon-lockdown.cjs` | 写入探针、申请提交通路与真实模型调用；仅由委托方显式执行   |
+
+`verify-anon-lockdown.cjs` 虽预期拒绝匿名写入，但权限回归时探针可能实际落库，
+因此归入 `test:live`，不再放在离线单元测试中。
+
+保留工具冒烟命令 `npm run health:tools`，它会访问云端，不属于离线验收。
+基础模式逐个调用工具；`npm run health:tools -- --deep` 还会运行语义检索，
+可能重建并写入向量索引、调用模型和消耗额度，须由委托方确认后执行。
 
 ## 目录结构
 
 ```text
-├── index.html / app.js / styles.css   # 站点源码（无构建步骤）
-├── release/                           # 待发布的三个文件（发布源）
+├── index.html                         # 首页
+├── pets.html / match.html              # 寻找伙伴、AI 匹配
+├── adoption.html / stories.html        # 领养流程、回访档案
+├── about.html / admin.html             # 小院介绍、独立工作台
+├── app.js / styles.css                 # 共享交互与样式（无构建步骤）
+├── site-config.js                      # 可发布匿名配置、本地审核模式
+├── assets/                            # 公开图片等站点素材
+├── release/                           # 委托方维护的发布源，Codex 不改动
 ├── functions/
 │   ├── yard-api/                      # 业务云函数（Event）
 │   └── ai-stream/                     # AI 流式代理（HTTP）
@@ -323,6 +392,7 @@ npm run health:tools
 ├── tools/                             # 验证脚本
 ├── .env.example                       # 环境变量模板（不含真实值）
 ├── eslint.config.mjs / .prettierrc.json
+├── AGENTS.md                          # 后续协作、验收与交付规则
 ├── DESIGN.md                          # 设计语言与视觉基调
 ├── PRODUCT.md                         # 产品定位与核心流程
 └── FORMAL-BACKEND.md                  # 后端结构与上线顺序
@@ -362,6 +432,7 @@ npm run health:tools
 
 ## 文档
 
+- [`AGENTS.md`](AGENTS.md) —— 后续代码改动、测试、提交与发布分工规范
 - [`DESIGN.md`](DESIGN.md) —— 设计语言、配色与视觉基调
 - [`PRODUCT.md`](PRODUCT.md) —— 产品定位、用户与核心流程
 - [`FORMAL-BACKEND.md`](FORMAL-BACKEND.md) —— 后端结构与上线顺序
