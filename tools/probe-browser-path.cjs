@@ -5,8 +5,9 @@
  * 某一步失败不代表其他步也失败。必须拿到完整边界，
  * 才知道该往 OPA 策略里补哪几条允许规则——而不是靠猜。
  *
- * 全部使用会被服务端拒绝的参数，不写入任何数据。
- * 密钥从 index.html 读取，不写入本文件、也不打印。
+ * 【test:live】会向线上写入数据，仅由委托方显式运行。
+ * 会建立匿名身份并调用提交接口；测试宠物预期不存在，但不能保证零副作用。
+ * 密钥从 site-config.js 读取，不写入本文件、也不打印。
  *
  * 用法：node tools/probe-browser-path.cjs
  */
@@ -31,10 +32,10 @@ if (!globalThis.localStorage) {
   };
 }
 
-const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
-const matched = html.match(/window\.YARD_CLOUD_CONFIG\s*=\s*(\{[\s\S]*?\})\s*;\s*<\/script>/);
+const configSource = fs.readFileSync(path.join(__dirname, '..', 'site-config.js'), 'utf8');
+const matched = configSource.match(/window\.YARD_CLOUD_CONFIG\s*=\s*(\{[\s\S]*?\})\s*;/);
 if (!matched) {
-  console.error('无法从 index.html 读取 YARD_CLOUD_CONFIG');
+  console.error('无法从 site-config.js 读取 YARD_CLOUD_CONFIG');
   process.exit(1);
 }
 const config = new Function(`return (${matched[1]});`)();

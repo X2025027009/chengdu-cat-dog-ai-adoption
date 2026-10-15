@@ -4,7 +4,7 @@
  * 对照赛事的「代码仓库」要求逐项核对，可反复运行（提交前再跑一次即可）。
  *
  * 检查内容：
- *   · 敏感信息：当前文件 + **全部历史提交**（历史同样是公开的）
+ *   · 敏感信息：当前跟踪文件、未忽略的新文件 + **全部历史提交**
  *   · README 必含小节：项目介绍、技术架构、安装运行指南、团队信息
  *   · 环境配置：环境变量模板、依赖清单
  *   · 代码规范：ESLint 与 Prettier 配置
@@ -12,21 +12,35 @@
  *   · 仓库整洁：遗留目录、异常大文件、误提交的依赖
  *   · 内部文档未进入公开仓库
  *
- * 用法：node tools/check-repo-compliance.cjs
+ * 用法：node tools/check-repo-compliance.cjs           （本地源码合规）
+ *       node tools/check-repo-compliance.cjs --release （另外检查发布源清单）
+ * 默认不要求源码已同步到 release/；发布源由委托方另行处理。
  */
 const fs = require('node:fs');
 const path = require('node:path');
 const { execFileSync } = require('node:child_process');
 
 const ROOT = path.join(__dirname, '..');
+const includeRelease = process.argv.includes('--release');
 let passed = 0;
 let failed = 0;
 let warned = 0;
 
-function pass(label, detail = '') { passed += 1; console.log(`  ✅ ${label}${detail ? ` —— ${detail}` : ''}`); }
-function fail(label, detail = '') { failed += 1; console.log(`  ❌ ${label}${detail ? ` —— ${detail}` : ''}`); }
-function warn(label, detail = '') { warned += 1; console.log(`  ⚠️  ${label}${detail ? ` —— ${detail}` : ''}`); }
-function check(label, ok, detail = '') { ok ? pass(label, detail) : fail(label, detail); }
+function pass(label, detail = '') {
+  passed += 1;
+  console.log(`  ✅ ${label}${detail ? ` —— ${detail}` : ''}`);
+}
+function fail(label, detail = '') {
+  failed += 1;
+  console.log(`  ❌ ${label}${detail ? ` —— ${detail}` : ''}`);
+}
+function warn(label, detail = '') {
+  warned += 1;
+  console.log(`  ⚠️  ${label}${detail ? ` —— ${detail}` : ''}`);
+}
+function check(label, ok, detail = '') {
+  ok ? pass(label, detail) : fail(label, detail);
+}
 
 function git(args, options = {}) {
   return execFileSync('git', args, { cwd: ROOT, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, ...options }).trim();
@@ -49,9 +63,7 @@ const SECRET_PATTERNS = [
 function inspectJwt(token) {
   try {
     const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString('utf8'));
-    const dangerous = payload.is_system_admin === true
-      || payload.role === 'service_role'
-      || payload.scope === 'admin';
+    const dangerous = payload.is_system_admin === true || payload.role === 'service_role' || payload.scope === 'admin';
     return { dangerous, role: payload.role || '(无)', platform: payload.meta?.platform || '' };
   } catch {
     return { dangerous: true, role: '无法解析' };
@@ -64,10 +76,11 @@ console.log(`仓库根目录：${ROOT}\n`);
 // ── 1. 敏感信息 ────────────────────────────────────────────────
 console.log('【1】敏感信息');
 
-const tracked = git(['ls-files']).split('\n').filter(Boolean);
+const tracked = git(['ls-files', '-z']).split('\0').filter(Boolean);
+const candidates = [...new Set(git(['ls-files', '--cached', '--others', '--exclude-standard', '-z']).split('\0').filter(Boolean))];
 const workingTreeHits = [];
 const jwtNotes = [];
-for (const file of tracked) {
+for (const file of candidates) {
   const full = path.join(ROOT, file);
   if (!fs.existsSync(full)) continue;
   if (/\.(png|jpe?g|webp|gif|ico|zip|exe|pptx|pdf|woff2?)$/i.test(file)) continue;
@@ -86,7 +99,7 @@ for (const file of tracked) {
     else jwtNotes.push(`${file} 的 JWT 是 ${info.role} 角色的可发布密钥（设计上即可公开）`);
   }
 }
-check('当前文件中没有真实密钥', workingTreeHits.length === 0, workingTreeHits.slice(0, 3).join('；'));
+check('当前跟踪文件和未忽略的新文件中没有真实密钥', workingTreeHits.length === 0, workingTreeHits.slice(0, 3).join('；'));
 for (const note of [...new Set(jwtNotes)]) pass('JWT 已核验为可发布密钥', note);
 
 // 历史提交同样公开，必须一并扫
@@ -96,9 +109,10 @@ for (const commit of commits) {
   // 不设初值：读取失败会 continue，初值永远读不到
   let out;
   try {
-    out = execFileSync('git', ['grep', '-n', '-E',
-      'qyapi\\.weixin\\.qq\\.com/cgi-bin/webhook/send\\?key=[A-Za-z0-9-]{8,}|sk-[A-Za-z0-9]{24,}|AKID[A-Za-z0-9]{20,}',
-      commit], { cwd: ROOT, encoding: 'utf8' });
+    out = execFileSync('git', ['grep', '-n', '-E', 'qyapi\\.weixin\\.qq\\.com/cgi-bin/webhook/send\\?key=[A-Za-z0-9-]{8,}|sk-[A-Za-z0-9]{24,}|AKID[A-Za-z0-9]{20,}', commit], {
+      cwd: ROOT,
+      encoding: 'utf8'
+    });
   } catch {
     continue; // 没有匹配时 git grep 返回非零
   }
@@ -160,18 +174,23 @@ check('有提交历史', log.length > 0, `${log.length} 次提交`);
  * 一次动很多文件。所以这里只把最大提交作为信息报出来，不做判定。
  */
 const firstCommitFiles = git(['show', '--pretty=format:', '--name-only', log[log.length - 1].split('|')[0]])
-  .split('\n').filter(Boolean).length;
+  .split('\n')
+  .filter(Boolean).length;
 const firstShare = tracked.length ? firstCommitFiles / tracked.length : 1;
-check('不是"一次性提交全部代码"', firstShare <= 0.5,
-  `首次提交含 ${firstCommitFiles} 个文件，占当前仓库 ${(firstShare * 100).toFixed(0)}%`);
+check('不是"一次性提交全部代码"', firstShare <= 0.5, `首次提交含 ${firstCommitFiles} 个文件，占当前仓库 ${(firstShare * 100).toFixed(0)}%`);
 
 const largest = git(['log', '--pretty=format:%H', '--name-only'])
   .split('\n')
-  .reduce((acc, line) => {
-    if (/^[0-9a-f]{40}$/.test(line)) { acc.current = { hash: line, files: 0 }; acc.list.push(acc.current); }
-    else if (line && acc.current) acc.current.files += 1;
-    return acc;
-  }, { current: null, list: [] })
+  .reduce(
+    (acc, line) => {
+      if (/^[0-9a-f]{40}$/.test(line)) {
+        acc.current = { hash: line, files: 0 };
+        acc.list.push(acc.current);
+      } else if (line && acc.current) acc.current.files += 1;
+      return acc;
+    },
+    { current: null, list: [] }
+  )
   .list.sort((a, b) => b.files - a.files)[0];
 pass('最大一次提交', `${largest?.files || 0} 个文件（批量改动属正常，仅作参考）`);
 
@@ -196,19 +215,40 @@ for (const [dir, why] of clutter) {
   check(`未提交 ${dir}/`, hits.length === 0, hits.length ? `${why}（${hits.length} 个文件）` : '');
 }
 
-const big = tracked.map(file => {
-  const full = path.join(ROOT, file);
-  return fs.existsSync(full) ? { file, size: fs.statSync(full).size } : null;
-}).filter(Boolean).filter(item => item.size > 12 * 1024 * 1024).sort((a, b) => b.size - a.size);
-check('没有超过 12 MB 的文件（文档类交付物本身较大）', big.length === 0, big.slice(0, 3).map(item => `${item.file} ${(item.size / 1048576).toFixed(1)}MB`).join('；'));
+const big = tracked
+  .map(file => {
+    const full = path.join(ROOT, file);
+    return fs.existsSync(full) ? { file, size: fs.statSync(full).size } : null;
+  })
+  .filter(Boolean)
+  .filter(item => item.size > 12 * 1024 * 1024)
+  .sort((a, b) => b.size - a.size);
+check(
+  '没有超过 12 MB 的文件（文档类交付物本身较大）',
+  big.length === 0,
+  big
+    .slice(0, 3)
+    .map(item => `${item.file} ${(item.size / 1048576).toFixed(1)}MB`)
+    .join('；')
+);
 
-// 检查三个发布文件都在，而不是数总数——assets/ 下还会有图片等素材
-const releaseMissing = ['app.js', 'index.html', 'styles.css'].filter(f => !tracked.includes(`release/${f}`));
-check('release/ 三个发布文件齐全', releaseMissing.length === 0, releaseMissing.join('、'));
-const releaseAssets = tracked.filter(f => f.startsWith('release/assets/'));
-const rootAssets = tracked.filter(f => f.startsWith('assets/'));
-check('assets/ 素材已同步到 release/', releaseAssets.length === rootAssets.length,
-  `根目录 ${rootAssets.length} 个，release ${releaseAssets.length} 个`);
+if (includeRelease) {
+  // 保留发布检查，只有委托方的显式发布验收才要求源码与发布源清单同步。
+  const siteFiles = fs.readdirSync(ROOT).filter(file => file.endsWith('.html'));
+  siteFiles.push(...['app.js', 'site-config.js', 'styles.css'].filter(file => fs.existsSync(path.join(ROOT, file))));
+  const releaseMissing = siteFiles.filter(file => !tracked.includes(`release/${file}`));
+  check('release/ 页面与共享资源清单齐全', releaseMissing.length === 0, releaseMissing.join('、'));
+  const releaseAssets = tracked.filter(file => file.startsWith('release/assets/'));
+  const rootAssets = candidates.filter(file => file.startsWith('assets/'));
+  const missingAssets = rootAssets.filter(file => !releaseAssets.includes(`release/${file}`));
+  check(
+    'assets/ 素材已同步到 release/',
+    missingAssets.length === 0 && releaseAssets.length === rootAssets.length,
+    `根目录 ${rootAssets.length} 个，release ${releaseAssets.length} 个${missingAssets.length ? `；缺少 ${missingAssets.join('、')}` : ''}`
+  );
+} else {
+  console.log('\n发布源同步由委托方使用 --release 与 check-release-sync.cjs 单独验收。');
+}
 
 console.log(`\n===== 通过 ${passed} 项，失败 ${failed} 项，提醒 ${warned} 项 =====`);
 if (failed) console.log('\n有失败项，提交前请先处理。');

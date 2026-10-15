@@ -1,6 +1,9 @@
 /**
  * Function Calling / Agent 循环的端到端测试。
  *
+ * 【test:live】会向线上写入数据，仅由委托方显式运行。
+ * 对话请求会写入限频事件，并可能消耗真实模型与向量检索额度。
+ *
  * 验证的核心问题：**模型是真的去查了数据，还是凭上下文猜的？**
  * 光看回答像不像样是看不出来的——必须看到 tool 事件真的发生。
  *
@@ -16,8 +19,13 @@ const ENDPOINT = 'https://chuanzhibei-d3gvmowp1e63d7f33-1470251683.ap-shanghai.a
 let passed = 0;
 let failed = 0;
 function check(label, condition, detail = '') {
-  if (condition) { passed += 1; console.log(`  ✅ ${label}`); }
-  else { failed += 1; console.log(`  ❌ ${label}${detail ? ` —— ${detail}` : ''}`); }
+  if (condition) {
+    passed += 1;
+    console.log(`  ✅ ${label}`);
+  } else {
+    failed += 1;
+    console.log(`  ❌ ${label}${detail ? ` —— ${detail}` : ''}`);
+  }
 }
 
 /** 发一次对话，收集全部 SSE 事件。 */
@@ -49,7 +57,9 @@ async function ask(question, timeoutMs = 60000) {
           const payload = JSON.parse(trimmed.slice(5).trim());
           events.push(payload);
           if (payload.type === 'delta') text += payload.text;
-        } catch { /* 忽略不完整行 */ }
+        } catch {
+          /* 忽略不完整行 */
+        }
       }
     }
   } finally {
@@ -76,7 +86,11 @@ function toolSummary(events) {
   const health = await (await fetch(ENDPOINT.replace('/chat', '/'))).json();
   check('服务可达', health.ok === true);
   check('已加载工具（≥5）', (health.tools?.count || 0) >= 5, `实际 ${health.tools?.count}`);
-  check('工具名符合预期', ['search_pets', 'get_pet_profile', 'get_adoption_policy'].every(n => health.tools?.names?.includes(n)), (health.tools?.names || []).join(','));
+  check(
+    '工具名符合预期',
+    ['search_pets', 'get_pet_profile', 'get_adoption_policy'].every(n => health.tools?.names?.includes(n)),
+    (health.tools?.names || []).join(',')
+  );
 
   /** 限频会让后续用例连锁失败，看起来像功能坏了。单独识别并说清楚。 */
   function bailIfRateLimited(result, label) {
@@ -100,7 +114,10 @@ function toolSummary(events) {
   check('调用了 get_adoption_policy', policyTools.names.includes('get_adoption_policy'), `实际：${policyTools.names.join(',')}`);
   check('工具的 started/done 成对出现', policyTools.started > 0 && policyTools.started === policyTools.finished, `started=${policyTools.started} done=${policyTools.finished}`);
   check('给出非空回答', policy.text.trim().length > 20, `长度 ${policy.text.trim().length}`);
-  check('以 done 事件收尾', policy.events.some(e => e.type === 'done'));
+  check(
+    '以 done 事件收尾',
+    policy.events.some(e => e.type === 'done')
+  );
   check('没有 error 事件', !policy.events.some(e => e.type === 'error'), JSON.stringify(policy.events.find(e => e.type === 'error')));
 
   // ── 用例二：只有查档案才能答 ─────────────────────────────
@@ -140,7 +157,11 @@ function toolSummary(events) {
   console.log('     回答前 70 字:', semantic.text.slice(0, 70).replace(/\n/g, ' '));
   check('调用了语义检索工具', semanticTools.names.includes('search_knowledge'), `实际：${semanticTools.names.join(',')}`);
   check('检索返回了依据来源', sources.length > 0, '没有 sources 事件，前端就显示不出依据');
-  check('依据里包含具体来源标签', sources.some(s => /档案|要求|政策|回访/.test(s)), [...new Set(sources)].join(','));
+  check(
+    '依据里包含具体来源标签',
+    sources.some(s => /档案|要求|政策|回访/.test(s)),
+    [...new Set(sources)].join(',')
+  );
   check('回答非空', semantic.text.trim().length > 20);
   check('没有 error 事件', !semantic.events.some(e => e.type === 'error'), JSON.stringify(semantic.events.find(e => e.type === 'error')));
 

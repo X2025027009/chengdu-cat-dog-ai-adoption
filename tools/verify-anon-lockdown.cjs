@@ -1,8 +1,10 @@
 /**
  * 安全校验：确认「匿名访客直写数据库」的入口已关闭。
  *
- * 用 index.html 里的匿名 Publishable Key 直接请求 CloudBase 网关的 RDB 接口，
- * 也就是浏览器 SDK 走的同一条路。密钥从 index.html 读取，不写入本文件、不打印。
+ * 【test:live】会向线上写入数据，仅由委托方显式运行。
+ * 请求预期被拒绝；若权限出现回归，三个写入探针可能实际落库。
+ * 用 site-config.js 里的匿名 Publishable Key 请求 CloudBase 网关的 RDB 接口，
+ * 也就是浏览器 SDK 走的同一条路。密钥从该文件读取、不打印。
  *
  * 期望结果：
  *   - 公开只读（pets）仍然可用
@@ -14,8 +16,12 @@
 const fs = require('node:fs');
 const path = require('node:path');
 
-const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
-const match = html.match(/window\.YARD_CLOUD_CONFIG\s*=\s*(\{[\s\S]*?\})\s*;\s*<\/script>/);
+const configSource = fs.readFileSync(path.join(__dirname, '..', 'site-config.js'), 'utf8');
+const match = configSource.match(/window\.YARD_CLOUD_CONFIG\s*=\s*(\{[\s\S]*?\})\s*;/);
+if (!match) {
+  console.error('无法从 site-config.js 读取 YARD_CLOUD_CONFIG');
+  process.exit(1);
+}
 const config = new Function(`return (${match[1]});`)();
 const base = `https://${config.env}.api.tcloudbasegateway.com/v1/rdb/rest`;
 
