@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="了解成都猫狗小院的领养流程、基本要求与后续回访安排。" />
+    <title>如何领养 · 成都猫狗小院</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Noto+Sans+SC:wght@400;500;600;700&family=Noto+Serif+SC:wght@600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body data-page="adoption">
+    <!-- THESIS: One task, one real URL; the homepage welcomes, dedicated pages let visitors act.
+       OWN-WORLD: Preserve cream, warm yellow, ink, Noto Serif SC and the courtyard's pet photography.
+       STORY: Meet a pet, understand the fit and process, apply with care, then follow its new life; administration stays separate.
+       FIRST VIEWPORT: Home retains copy-left/photo-right; task pages put title and primary tool first, with active navigation.
+       FORM: Precise extension of the existing buildless site, no concept roll; code-led multipage refinement.
+       FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, DESIGN.md, and every shipping raster carrying its provenance -->
+    <a class="skip-link" href="#main">跳到主要内容</a>
+
+    <header class="site-header" id="top">
+      <div class="container header-inner">
+        <a class="brand" href="index.html" aria-label="成都猫狗小院首页">
+          <span class="brand-mark" aria-hidden="true">
+            <svg viewBox="0 0 48 48" fill="none">
+              <path
+                d="M18.7 14.5c-2.6-4.1-6.5-5.8-8.6-5.5-1.2.2-1.8 1.4-1.4 2.5 1.3 3.6 3.5 6.3 6.2 7.4M29.4 14.7c2.5-4.1 6.3-5.9 8.5-5.7 1.2.1 1.9 1.3 1.6 2.5-1 3.7-3.1 6.5-5.8 7.8"
+                stroke="currentColor"
+                stroke-width="3"
+                stroke-linecap="round"
+              />
+              <path d="M24 17.5c-8.1 0-13.5 5.7-13.5 13.5 0 7.4 5.6 11.5 13.5 11.5S37.5 38.4 37.5 31C37.5 23.2 32.1 17.5 24 17.5Z" fill="currentColor" opacity=".95" />
+              <path d="M20.3 29.1c.9-1.1 2.1-1.7 3.7-1.7s2.8.6 3.7 1.7M20.5 34.3c1 .8 2.1 1.2 3.5 1.2s2.5-.4 3.5-1.2" stroke="#fff8ef" stroke-width="2.1" stroke-linecap="round" />
+            </svg>
+          </span>
+          <span><strong>成都猫狗小院</strong><small>领养代替购买</small></span>
+        </a>
+
+        <button class="menu-toggle" id="menuToggle" aria-label="打开导航" aria-expanded="false" aria-controls="siteNav"><span></span><span></span><span></span></button>
+
+        <nav class="site-nav" id="siteNav" aria-label="主导航">
+          <a href="index.html">首页</a>
+          <a href="pets.html">寻找伙伴</a>
+          <a href="match.html">AI 匹配</a>
+          <a href="adoption.html" aria-current="page">如何领养</a>
+          <a href="stories.html">回访档案</a>
+          <a href="about.html">关于小院</a>
+          <a class="nav-admin" href="admin.html">管理员入口</a>
+        </nav>
+      </div>
+    </header>
+
+    <div class="local-review-notice" id="localReviewNotice" hidden>
+      <div class="container"><strong>本地审核预览</strong><span>示例与本机数据 · 不连接云端，操作只保存在本浏览器。</span></div>
+    </div>
+    <main id="main">
+      <div class="container" id="applicantNotice" hidden></div>
+      <section class="section process-section" id="how">
+        <div class="container process-layout">
+          <div class="process-copy">
+            <h1 class="page-title">不需要匆忙，<br />但需要认真。</h1>
+            <p>我们希望每一次领养，都先从清楚、坦诚的沟通开始。提交申请不代表立刻带走，而是让我们一起确认：你和它是否真的适合彼此。</p>
+            <a class="button button-ghost" href="about.html">阅读小院的领养原则</a>
+          </div>
+          <ol class="process-list">
+            <li>
+              <span>01</span>
+              <div>
+                <strong>先看档案</strong>
+                <p>了解它的性格、健康情况和日常习惯。</p>
+              </div>
+            </li>
+            <li>
+              <span>02</span>
+              <div>
+                <strong>提交申请</strong>
+                <p>留下真实信息，方便我们和你进一步沟通。</p>
+              </div>
+            </li>
+            <li>
+              <span>03</span>
+              <div>
+                <strong>慢慢确认</strong>
+                <p>沟通、见面、了解环境，再一起做出决定。</p>
+              </div>
+            </li>
+            <li>
+              <span>04</span>
+              <div>
+                <strong>把陪伴继续下去</strong>
+                <p>完成领养后，我们也期待收到你们的新生活照片。</p>
+              </div>
+            </li>
+          </ol>
+        </div>
+      </section>
+      <section class="section adoption-ready">
+        <div class="container readiness-layout">
+          <div>
+            <h2>在申请之前，先确认。</h2>
+            <p>稳定住所、家庭成员同意、安全防护和接受后续回访，是小院默认的领养要求。每只宠物的具体要求，请以它的档案为准。</p>
+          </div>
+          <div class="readiness-actions">
+            <a class="button button-primary" href="pets.html">寻找合适的伙伴</a><button class="button button-ghost" type="button" data-open-my-application>修改我的申请</button>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container footer-inner">
+        <a class="brand brand-footer" href="index.html"
+          ><span class="brand-mark" aria-hidden="true"
+            ><svg viewBox="0 0 48 48" fill="none">
+              <path
+                d="M18.7 14.5c-2.6-4.1-6.5-5.8-8.6-5.5-1.2.2-1.8 1.4-1.4 2.5 1.3 3.6 3.5 6.3 6.2 7.4M29.4 14.7c2.5-4.1 6.3-5.9 8.5-5.7 1.2.1 1.9 1.3 1.6 2.5-1 3.7-3.1 6.5-5.8 7.8"
+                stroke="currentColor"
+                stroke-width="3"
+                stroke-linecap="round"
+              />
+              <path d="M24 17.5c-8.1 0-13.5 5.7-13.5 13.5 0 7.4 5.6 11.5 13.5 11.5S37.5 38.4 37.5 31C37.5 23.2 32.1 17.5 24 17.5Z" fill="currentColor" opacity=".95" />
+              <path d="M20.3 29.1c.9-1.1 2.1-1.7 3.7-1.7s2.8.6 3.7 1.7M20.5 34.3c1 .8 2.1 1.2 3.5 1.2s2.5-.4 3.5-1.2" stroke="#fff8ef" stroke-width="2.1" stroke-linecap="round" /></svg></span
+          ><span><strong>成都猫狗小院</strong><small>领养代替购买</small></span></a
+        >
+        <p>当前为示例网站原型，动物资料与联系方式均可由管理员在后台替换。</p>
+        <div class="footer-actions">
+          <button class="footer-admin" id="footerEditApplication">修改我的申请</button>
+          <a class="footer-admin" href="admin.html">管理员入口</a>
+        </div>
+      </div>
+    </footer>
+
+    <div class="modal-backdrop hidden" id="modalBackdrop" aria-hidden="true">
+      <section class="modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle"></section>
+    </div>
+
+    <div class="toast hidden" id="toast" role="status" aria-live="polite"></div>
+
+    <script src="site-config.js" defer></script>
+    <script src="app.js" defer></script>
+  </body>
+</html>

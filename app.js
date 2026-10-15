@@ -70,6 +70,9 @@ const DEFAULT_PETS = [
 ];
 
 const APPLICATION_STATUSES = ['未处理', '沟通中', '已通过', '已登记', '等待宠物开放', '已通知', '已转为正式领养申请', '暂不考虑'];
+const SITE_PAGE = document.body.dataset.page || 'home';
+const LOCAL_REVIEW = window.YARD_LOCAL_REVIEW === true;
+const ADMIN_TABS = ['overview', 'pets', 'applications', 'settings'];
 // 本机保存「资料修改凭证」，方便同一台浏览器事后自行修改申请。
 const EDIT_TOKEN_KEY = 'cd-yard-edit-tokens';
 const EDIT_NOTICE_DISMISSED_KEY = 'cd-yard-edit-notice-dismissed';
@@ -93,6 +96,7 @@ let cloudApp = null;
 let cloudDb = null;
 let cloudMediaBucket = null;
 let adminAuthUser = null;
+let adminAccessGranted = false;
 let cloudApplications = null;
 // 企业微信机器人地址是私密配置：只有管理员能读，公开访客读不到这个 key。
 let cloudWecomWebhook = '';
@@ -132,11 +136,29 @@ let cropQueueIndex = 0;
 let cropState = null;
 let publicApplicationAuthPromise = null;
 
-const $ = (selector, root = document) => root.querySelector(selector);
-const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
+const $ = (selector, root = document) => root?.querySelector(selector) || null;
+const $$ = (selector, root = document) => [...(root?.querySelectorAll(selector) || [])];
 const escapeHtml = (value = '') => String(value).replace(/[&<>'"]/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[char]));
 const petById = (id) => pets.find(pet => pet.id === id);
 const makeMediaId = () => `media-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+function adminTabFromUrl() {
+  const tab = new URL(window.location.href).searchParams.get('tab');
+  return ADMIN_TABS.includes(tab) ? tab : 'overview';
+}
+function changeAdminTab(tab, updateHistory = true) {
+  if (!ADMIN_TABS.includes(tab)) return;
+  resetPendingPhotoSelection();
+  adminEditing = null;
+  adminTab = tab;
+  if (SITE_PAGE === 'admin' && updateHistory) {
+    const url = new URL(window.location.href);
+    if (url.searchParams.get('tab') !== tab) {
+      url.searchParams.set('tab', tab);
+      window.history.pushState(null, '', `${url.pathname}${url.search}${url.hash}`);
+    }
+  }
+  renderAdmin();
+}
 function browserApplicationToken() {
   const key = 'cd-yard-application-browser-token';
   let token = localStorage.getItem(key);
@@ -251,6 +273,12 @@ async function activateLocalBackup() {
   renderAll();
 }
 async function loadCloudPublicData() {
+  if (LOCAL_REVIEW) {
+    cloudState = { ...cloudState, connected: false, checked: true, error: '' };
+    await activateLocalBackup();
+    renderAdminSyncNotice();
+    return;
+  }
   const config = window.YARD_CLOUD_CONFIG;
   if (!config?.env || !config?.accessKey || !window.cloudbase) {
     cloudState = { ...cloudState, checked: true, error: '云端组件未加载' };
@@ -323,6 +351,12 @@ function renderAdminSyncNotice() {
   if (!notice) return;
   const title = $('strong', notice);
   const copy = $('span', notice);
+  if (!title || !copy) return;
+  if (LOCAL_REVIEW) {
+    title.textContent = '本地审核';
+    copy.textContent = '当前只显示本机示例和草稿。编辑仅保存在这台浏览器，不连接云端，也不会同步到线上网站。';
+    return;
+  }
   if (!cloudState.checked) {
     title.textContent = '正在连接';
     copy.textContent = '正在读取 CloudBase 云端公开资料。网站会优先显示最新云端档案。';
@@ -543,6 +577,7 @@ function renderFeaturedPetCards(animate = false) {
 }
 function startFeaturedPetRotation() {
   if (featuredPetTimer) window.clearInterval(featuredPetTimer);
+  if (!$('.hero-feature') && !$('.story-grid')) return;
   featuredPetTimer = window.setInterval(() => {
     featuredPetIndexes = {
       hero: featuredPetIndexes.hero + 1,
@@ -554,6 +589,7 @@ function startFeaturedPetRotation() {
 
 function renderStats() {
   const stats = $('#stats');
+  if (!stats) return;
   if (publicDataSource === 'loading') {
     stats.innerHTML = '<div class="stat stat-loading" role="status"><strong>正在读取最新档案</strong><span>请稍候，正在连接小院云端。</span></div>';
     return;
@@ -569,6 +605,7 @@ function renderStats() {
 
 function renderContact() {
   const contact = $('#contactList');
+  if (!contact) return;
   if (publicDataSource === 'loading') {
     contact.innerHTML = '<div><dt>最新联系方式</dt><dd>正在从云端读取…</dd></div>';
     return;
@@ -583,6 +620,7 @@ function renderContact() {
 function renderPets() {
   const grid = $('#petGrid');
   const empty = $('#emptyState');
+  if (!grid || !empty) return;
   if (publicDataSource === 'loading') {
     grid.setAttribute('aria-busy', 'true');
     grid.innerHTML = '<div class="pet-loading" role="status"><strong>正在读取最新档案</strong><span>正在从小院云端更新宠物资料和影像。</span></div>';
@@ -595,9 +633,14 @@ function renderPets() {
     return statusMatches && typeMatches;
   });
   grid.setAttribute('aria-busy', 'false');
-  grid.innerHTML = matchingPets.map(pet => `
+  grid.innerHTML = matchingPets.map(petCardMarkup).join('');
+  empty.classList.toggle('hidden', matchingPets.length > 0);
+}
+
+function petCardMarkup(pet) {
+  return `
     <article class="pet-card">
-      <button class="pet-card-image" data-open-pet="${pet.id}" aria-label="查看${escapeHtml(pet.name)}的详情">
+      <button class="pet-card-image" data-open-pet="${escapeHtml(pet.id)}" aria-label="查看${escapeHtml(pet.name)}的详情">
         <img src="${escapeHtml(mediaUrl(coverMedia(pet)))}" alt="${escapeHtml(pet.name)}，${escapeHtml(pet.type)}照片" />
         <span class="status-pill ${statusClass(pet.status)}">${escapeHtml(pet.status)}</span>
       </button>
@@ -605,16 +648,33 @@ function renderPets() {
         <div class="pet-card-top"><h3>${escapeHtml(pet.name)}</h3><span class="pet-card-meta">${escapeHtml(pet.type)} · ${escapeHtml(pet.gender)} · ${escapeHtml(pet.age)}</span></div>
         <p class="pet-card-description">${escapeHtml(pet.description)}</p>
         <div class="pet-tags">${pet.tags.map(tag => `<span>${escapeHtml(tag)}</span>`).join('')}</div>
-        <button class="card-action" data-open-pet="${pet.id}">${statusAction(pet.status)} <span aria-hidden="true">→</span></button>
+        <button class="card-action" data-open-pet="${escapeHtml(pet.id)}">${statusAction(pet.status)} <span aria-hidden="true">→</span></button>
       </div>
-    </article>`).join('');
-  empty.classList.toggle('hidden', matchingPets.length > 0);
+    </article>`;
+}
+
+function renderStories() {
+  const grid = $('#storiesGrid');
+  const empty = $('#storiesEmpty');
+  if (!grid || !empty) return;
+  if (publicDataSource === 'loading') {
+    grid.setAttribute('aria-busy', 'true');
+    grid.innerHTML = '<div class="pet-loading" role="status"><strong>正在读取生活档案</strong><span>照片、影像和回访记录正在更新。</span></div>';
+    empty.classList.add('hidden');
+    return;
+  }
+  const adoptedPets = pets.filter(pet => pet.status === '已领养');
+  grid.setAttribute('aria-busy', 'false');
+  grid.innerHTML = adoptedPets.map(petCardMarkup).join('');
+  empty.classList.toggle('hidden', adoptedPets.length > 0);
 }
 
 function openModal(content) {
   returnFocus = document.activeElement;
   const backdrop = $('#modalBackdrop');
-  $('#modal').innerHTML = content;
+  const modal = $('#modal');
+  if (!backdrop || !modal) return;
+  modal.innerHTML = content;
   backdrop.classList.remove('hidden');
   backdrop.setAttribute('aria-hidden', 'false');
   document.body.classList.add('modal-open');
@@ -624,10 +684,12 @@ function closeModal() {
   cropState = null;
   cropQueue = [];
   cropQueueIndex = 0;
-  $('#modalBackdrop').classList.remove('crop-backdrop');
-  $('#modalBackdrop').classList.add('hidden');
-  $('#modalBackdrop').setAttribute('aria-hidden', 'true');
-  $('#modal').innerHTML = '';
+  const backdrop = $('#modalBackdrop');
+  backdrop?.classList.remove('crop-backdrop');
+  backdrop?.classList.add('hidden');
+  backdrop?.setAttribute('aria-hidden', 'true');
+  const modal = $('#modal');
+  if (modal) modal.innerHTML = '';
   document.body.classList.remove('modal-open');
   returnFocus?.focus?.();
 }
@@ -890,6 +952,7 @@ function openContactModal() {
 
 function toast(message) {
   const toastElement = $('#toast');
+  if (!toastElement) return;
   toastElement.textContent = message;
   toastElement.classList.remove('hidden');
   clearTimeout(window.toastTimer);
@@ -897,6 +960,7 @@ function toast(message) {
 }
 
 function openAdminLogin(message = '') {
+  if (LOCAL_REVIEW) { openAdmin(); return; }
   openModal(`
     <div class="form-modal admin-login-modal">
       <div class="form-modal-header"><div><h2 id="modalTitle">管理员登录</h2><p>请输入 CloudBase 用户名和密码。密码只在当前浏览器中使用，不会发送到聊天。</p></div><button class="modal-close" data-close-modal aria-label="关闭登录"><svg viewBox="0 0 24 24" fill="none"><path d="m6 6 12 12M18 6 6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button></div>
@@ -910,13 +974,19 @@ async function getAdminUser() {
   return result?.data?.user || null;
 }
 async function ensureAdminAccess() {
-  if (!cloudState.connected || !cloudApp || !cloudDb) return true;
+  adminAccessGranted = false;
+  if (LOCAL_REVIEW) { adminAccessGranted = true; return true; }
+  if (!cloudState.connected || !cloudApp || !cloudDb) {
+    renderAdminAccessGate('管理员登录暂时不可用，请等待云端连接恢复后重试。');
+    return false;
+  }
   const user = await getAdminUser();
   if (!user) { openAdminLogin(); return false; }
   const authUid = user.id || user.uid || user.user_id || '';
   const adminRows = cloudRows(await cloudDb.from('yard_administrators').select('auth_uid,display_name').eq('auth_uid', authUid).limit(1), '检查管理员权限');
   if (!adminRows.length) { await cloudApp.auth().signOut(); openAdminLogin('当前账号还没有被登记为小院管理员。'); return false; }
   adminAuthUser = { ...user, uid: authUid, ...adminRows[0] };
+  adminAccessGranted = true;
   return true;
 }
 async function loadCloudAdminData() {
@@ -970,19 +1040,27 @@ function wecomStatusHint() {
     : `<span class="form-hint wecom-status is-error">最近一次提醒：发送失败${when}${cloudWecomStatus.reason ? ` 原因：${escapeHtml(cloudWecomStatus.reason)}` : ''}</span>`;
 }
 async function openAdmin() {
+  const backdrop = $('#adminBackdrop');
+  if (!backdrop) { window.location.assign('admin.html'); return; }
   returnFocus = document.activeElement;
-  if (!(await ensureAdminAccess())) return;
-  $('#adminBackdrop').classList.remove('hidden');
-  $('#adminBackdrop').setAttribute('aria-hidden', 'false');
-  document.body.classList.add('modal-open');
-  await loadCloudAdminData();
-  await loadAdminPrivateSettings();
-  renderAdmin();
-  setTimeout(() => $('.admin-nav-button.active')?.focus(), 10);
+  renderAdminAccessGate();
+  try {
+    if (!(await ensureAdminAccess())) return;
+    backdrop.classList.remove('hidden');
+    backdrop.setAttribute('aria-hidden', 'false');
+    if (SITE_PAGE !== 'admin') document.body.classList.add('modal-open');
+    await loadCloudAdminData();
+    await loadAdminPrivateSettings();
+    renderAdmin();
+  } catch (error) {
+    adminAccessGranted = false;
+    renderAdminAccessGate(error.message || '暂时无法验证管理员身份，请稍后重试。');
+  }
 }
 function closeAdmin() {
-  $('#adminBackdrop').classList.add('hidden');
-  $('#adminBackdrop').setAttribute('aria-hidden', 'true');
+  if (SITE_PAGE === 'admin') return;
+  $('#adminBackdrop')?.classList.add('hidden');
+  $('#adminBackdrop')?.setAttribute('aria-hidden', 'true');
   document.body.classList.remove('modal-open');
   returnFocus?.focus?.();
 }
@@ -990,9 +1068,25 @@ function closeAdmin() {
 function adminPageHead(title, copy, action = '') {
   return `<div class="admin-page-head"><div><h3>${title}</h3><p>${copy}</p></div>${action}</div>`;
 }
-function renderAdmin() {
-  $$('.admin-nav-button').forEach(button => button.classList.toggle('active', button.dataset.adminTab === adminTab));
+function renderAdminAccessGate(message = '') {
   const content = $('#adminContent');
+  if (!content) return;
+  const checking = !cloudState.checked && !LOCAL_REVIEW;
+  content.innerHTML = `${adminPageHead(checking ? '正在验证管理员入口' : '登录管理员工作台', '宠物编辑、申请记录和网站设置仅向管理员开放。')}
+    ${message ? `<p class="admin-login-error" role="alert">${escapeHtml(message)}</p>` : ''}
+    ${checking ? '<p class="form-hint" role="status">正在连接小院服务，请稍候。</p>' : '<button class="button button-primary" type="button" data-admin-login>管理员登录</button>'}`;
+  renderAdminSyncNotice();
+}
+function renderAdmin() {
+  const content = $('#adminContent');
+  if (!content) return;
+  if (!adminAccessGranted) { renderAdminAccessGate(); return; }
+  $$('.admin-nav-button').forEach(button => {
+    const active = button.dataset.adminTab === adminTab;
+    button.classList.toggle('active', active);
+    if (active) button.setAttribute('aria-current', 'page');
+    else button.removeAttribute('aria-current');
+  });
   if (adminTab === 'overview') content.innerHTML = renderAdminOverview();
   if (adminTab === 'pets') content.innerHTML = renderAdminPets();
   if (adminTab === 'applications') content.innerHTML = renderAdminApplications();
@@ -1280,8 +1374,7 @@ function bindAdminEvents() {
   }));
   $('#petEditForm')?.addEventListener('submit', handlePetSave);
   $('[data-open-applications]')?.addEventListener('click', () => {
-    adminTab = 'applications';
-    renderAdmin();
+    changeAdminTab('applications');
   });
   $$('[data-application-form]').forEach(form => form.addEventListener('submit', async event => {
     event.preventDefault();
@@ -1952,7 +2045,7 @@ async function handlePetSave(event) {
 }
 function renderAll() {
   document.body.classList.toggle('public-data-loading', publicDataSource === 'loading');
-  renderFeaturedPetCards(); renderStats(); renderContact(); renderPets();
+  renderFeaturedPetCards(); renderStats(); renderContact(); renderPets(); renderStories();
 }
 
 function setFilter(group, value) {
@@ -1982,7 +2075,12 @@ document.addEventListener('click', event => {
   if (applyTarget) { openApplicationForm(applyTarget.dataset.applyPet, applyTarget.dataset.applicationKind); return; }
   if (event.target.closest('[data-close-modal]')) { closeModal(); return; }
   if (event.target.closest('[data-contact-open]')) { openContactModal(); return; }
-  if (event.target.closest('[data-scroll-updates]')) { closeModal(); document.querySelector('#stories')?.scrollIntoView({ behavior: 'smooth' }); return; }
+  if (event.target.closest('[data-scroll-updates]')) {
+    closeModal();
+    if (SITE_PAGE === 'stories') $('#storiesGrid')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    else window.location.assign('stories.html');
+    return;
+  }
   const filterButton = event.target.closest('[data-filter]');
   if (filterButton) { setFilter(filterButton.dataset.filter, filterButton.dataset.value); return; }
   const deleteApplicationButton = event.target.closest('[data-delete-application]');
@@ -2000,7 +2098,7 @@ document.addEventListener('click', event => {
   }
   const deletePetButton = event.target.closest('[data-delete-pet]');
   if (deletePetButton) { handlePetDelete(deletePetButton.dataset.deletePet); return; }
-  if (event.target.closest('#adminButton, #footerAdmin')) { openAdmin(); return; }
+  if (event.target.closest('[data-admin-login]')) { openAdmin(); return; }
   if (event.target.closest('#footerEditApplication')) { openMyApplicationEditor(); return; }
   if (event.target.closest('[data-open-my-application]')) { openMyApplicationEditor(); return; }
   if (event.target.closest('[data-dismiss-applicant-notice]')) { dismissApplicantEditBanner(); return; }
@@ -2010,32 +2108,31 @@ document.addEventListener('click', event => {
   if (event.target.closest('#closeAdmin')) { resetPendingPhotoSelection(); closeAdmin(); return; }
   const adminTabButton = event.target.closest('[data-admin-tab]');
   if (adminTabButton) {
-    resetPendingPhotoSelection();
-    adminTab = adminTabButton.dataset.adminTab;
-    adminEditing = null;
-    renderAdmin();
+    event.preventDefault();
+    if (!adminAccessGranted) { openAdmin(); return; }
+    changeAdminTab(adminTabButton.dataset.adminTab);
   }
 });
 
-$('#modalBackdrop').addEventListener('click', event => { if (event.target === $('#modalBackdrop')) { if (cropState) cancelPhotoCrop(); else closeModal(); } });
-$('#adminBackdrop').addEventListener('click', event => { if (event.target === $('#adminBackdrop')) closeAdmin(); });
+$('#modalBackdrop')?.addEventListener('click', event => { if (event.target === $('#modalBackdrop')) { if (cropState) cancelPhotoCrop(); else closeModal(); } });
+$('#adminBackdrop')?.addEventListener('click', event => { if (SITE_PAGE !== 'admin' && event.target === $('#adminBackdrop')) closeAdmin(); });
 
 document.addEventListener('submit', async event => {
   if (event.target.id !== 'adminLoginForm') return;
   event.preventDefault();
+  if (LOCAL_REVIEW) { closeModal(); await openAdmin(); return; }
   const form = event.target;
   const data = Object.fromEntries(new FormData(form));
   if (!cloudApp) { openAdminLogin('云端登录组件尚未加载，请刷新页面后重试。'); return; }
-  const result = await cloudApp.auth().signInWithPassword({ username: String(data.username || '').trim(), password: String(data.password || '') });
-  if (result?.error) { openAdminLogin(result.error.message || '用户名或密码不正确。'); return; }
-  if (!(await ensureAdminAccess())) return;
-  closeModal();
-  await loadCloudAdminData();
-  $('#adminBackdrop').classList.remove('hidden');
-  $('#adminBackdrop').setAttribute('aria-hidden', 'false');
-  document.body.classList.add('modal-open');
-  renderAdmin();
-  setTimeout(() => $('.admin-nav-button.active')?.focus(), 10);
+  try {
+    const result = await cloudApp.auth().signInWithPassword({ username: String(data.username || '').trim(), password: String(data.password || '') });
+    if (result?.error) { openAdminLogin(result.error.message || '用户名或密码不正确。'); return; }
+    if (!(await ensureAdminAccess())) return;
+    closeModal();
+    await openAdmin();
+  } catch (error) {
+    openAdminLogin(error.message || '登录暂时不可用，请稍后重试。');
+  }
 });
 async function ensurePublicApplicationSession() {
   if (!cloudApp?.auth) throw new Error('云端申请服务尚未就绪，请稍后再试。');
@@ -2054,6 +2151,7 @@ async function ensurePublicApplicationSession() {
   return publicApplicationAuthPromise;
 }
 async function callYardApi(data) {
+  if (LOCAL_REVIEW) throw new Error('本地审核版未连接云端，这项操作暂不可用。填写的资料不会发送或同步到线上。');
   if (!cloudState.connected || !cloudApp?.callFunction) throw new Error('云端连接尚未就绪，请稍后再试。');
   try { await ensurePublicApplicationSession(); }
   // 保留原始错误作为 cause：访客看到的仍是通用提示，但排查时能在控制台看到真实原因。
@@ -2295,15 +2393,41 @@ document.addEventListener('submit', async event => {
   }
 });
 
-$('#menuToggle').addEventListener('click', () => {
+function closeNavigation(restoreFocus = false) {
   const nav = $('#siteNav');
+  const button = $('#menuToggle');
+  const wasOpen = nav?.classList.contains('open');
+  nav?.classList.remove('open');
+  button?.setAttribute('aria-expanded', 'false');
+  button?.setAttribute('aria-label', '打开导航');
+  if (restoreFocus && wasOpen) button?.focus();
+}
+
+$('#menuToggle')?.addEventListener('click', () => {
+  const nav = $('#siteNav');
+  if (!nav) return;
   const expanded = nav.classList.toggle('open');
-  $('#menuToggle').setAttribute('aria-expanded', String(expanded));
-  $('#menuToggle').setAttribute('aria-label', expanded ? '关闭导航' : '打开导航');
+  $('#menuToggle')?.setAttribute('aria-expanded', String(expanded));
+  $('#menuToggle')?.setAttribute('aria-label', expanded ? '关闭导航' : '打开导航');
 });
-$$('#siteNav a').forEach(link => link.addEventListener('click', () => { $('#siteNav').classList.remove('open'); $('#menuToggle').setAttribute('aria-expanded', 'false'); }));
-window.addEventListener('scroll', () => $('.site-header').classList.toggle('scrolled', window.scrollY > 10), { passive: true });
-document.addEventListener('keydown', event => { if (event.key === 'Escape') { if (!$('#modalBackdrop').classList.contains('hidden')) { if (cropState) cancelPhotoCrop(); else closeModal(); } else if (!$('#adminBackdrop').classList.contains('hidden')) closeAdmin(); } });
+$$('#siteNav a').forEach(link => link.addEventListener('click', () => closeNavigation()));
+window.addEventListener('scroll', () => $('.site-header')?.classList.toggle('scrolled', window.scrollY > 10), { passive: true });
+window.addEventListener('popstate', () => {
+  if (SITE_PAGE === 'admin') changeAdminTab(adminTabFromUrl(), false);
+});
+document.addEventListener('keydown', event => {
+  if (event.key !== 'Escape') return;
+  const modalBackdrop = $('#modalBackdrop');
+  const adminBackdrop = $('#adminBackdrop');
+  if (modalBackdrop && !modalBackdrop.classList.contains('hidden')) {
+    if (cropState) cancelPhotoCrop();
+    else closeModal();
+  } else if ($('#siteNav')?.classList.contains('open')) {
+    closeNavigation(true);
+  } else if (SITE_PAGE !== 'admin' && adminBackdrop && !adminBackdrop.classList.contains('hidden')) {
+    closeAdmin();
+  }
+});
 
 /* ── AI 领养匹配助手 ──────────────────────────────────────────
    对接云函数 ai-stream（HTTP 云函数，SSE 流式）。
@@ -2465,6 +2589,8 @@ function matchVoiceStop() {
 function initMatchVoice() {
   const button = $('#matchVoice');
   if (!button) return;
+  // Browser speech recognition may use a remote service; keep local review isolated.
+  if (LOCAL_REVIEW) { button.hidden = true; return; }
   if (!matchVoiceSupported()) {
     button.hidden = true;
     return;
@@ -2596,6 +2722,13 @@ function renderPhotoMatches(container, result) {
 
 async function handlePhotoSearch(file) {
   const container = $('#matchPhotoResult');
+  if (LOCAL_REVIEW) {
+    if (container) {
+      container.hidden = false;
+      container.innerHTML = '<p class="match-photo-empty">本地审核版暂不调用照片比对服务。照片不会上传，审核通过后可恢复云端图搜。</p>';
+    }
+    return;
+  }
   const label = $('#matchPhotoLabel');
   const previous = label?.textContent;
   if (label) label.textContent = '正在比对…';
@@ -2649,6 +2782,11 @@ async function matchAsk(preset) {
 
   const question = String(preset ?? input?.value ?? '').trim();
   if (!question) { input?.focus(); return; }
+  if (LOCAL_REVIEW) {
+    matchAppend('ai', '本地审核版暂不调用 AI 匹配服务。你可以先查看宠物档案和领养流程，审核通过后再使用云端匹配。');
+    input?.focus();
+    return;
+  }
 
   matchState.streaming = true;
   if (input) input.value = '';
@@ -2748,6 +2886,13 @@ function initMatchAssistant() {
   const { thread, form, input, reset } = matchElements();
   if (!thread || !form) return;
   thread.innerHTML = matchWelcomeHtml();
+  if (LOCAL_REVIEW) {
+    const hint = $('#matchModeHint');
+    if (hint) {
+      hint.hidden = false;
+      hint.textContent = '本地审核：对话和照片不会发送到云端，AI 匹配与照片比对暂不可用。';
+    }
+  }
   initMatchVoice();
   initPhotoSearch();
 
@@ -2773,12 +2918,38 @@ function initMatchAssistant() {
   reset?.addEventListener('click', resetMatchAssistant);
 }
 
+function redirectLegacyHomeHash() {
+  if (SITE_PAGE !== 'home') return false;
+  const routes = { '#pets': 'pets.html', '#match': 'match.html', '#how': 'adoption.html', '#stories': 'stories.html', '#about': 'about.html' };
+  const route = routes[window.location.hash];
+  if (!route) return false;
+  window.location.replace(`${route}${window.location.search}`);
+  return true;
+}
+
 async function initializeSite() {
+  if (redirectLegacyHomeHash()) return;
+  if (SITE_PAGE === 'admin') {
+    adminTab = adminTabFromUrl();
+    const url = new URL(window.location.href);
+    if (url.searchParams.has('tab') && !ADMIN_TABS.includes(url.searchParams.get('tab'))) {
+      url.searchParams.delete('tab');
+      window.history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`);
+    }
+    renderAdminAccessGate();
+  }
   renderAll();
   renderAdminSyncNotice();
   renderApplicantEditBanner();
   initMatchAssistant();
+  await window.YARD_CLOUD_READY;
   await loadCloudPublicData();
   startFeaturedPetRotation();
+  if (SITE_PAGE === 'admin') await openAdmin();
+  const petId = new URL(window.location.href).searchParams.get('pet');
+  if (petId && SITE_PAGE !== 'admin') {
+    if (petById(petId)) openPetDetail(petId);
+    else toast('这份宠物档案暂时不可用，可以在寻找伙伴页面查看当前档案。');
+  }
 }
 initializeSite();

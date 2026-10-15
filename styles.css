@@ -25,7 +25,7 @@ button { cursor: pointer; }
 img { display: block; max-width: 100%; }
 ::selection { background: var(--warm-yellow); color: var(--ink); }
 :focus-visible { outline: 3px solid var(--clay); outline-offset: 3px; }
-.hidden { display: none !important; }
+.hidden, [hidden] { display: none !important; }
 .container { width: min(1180px, calc(100% - 40px)); margin: 0 auto; }
 .skip-link { position: fixed; top: 12px; left: 12px; z-index: 999; padding: 10px 14px; background: var(--ink); color: #fff; border-radius: 9px; transform: translateY(-200%); }
 .skip-link:focus { transform: translateY(0); }
@@ -825,5 +825,80 @@ h2 { font-size: clamp(30px, 3.4vw, 48px); }
   .match-panel { padding: 16px; }
   .match-bubble { max-width: 96%; }
   .match-actions .button { flex: 1; }
+}
+
+/* Multipage extension: keep the existing courtyard identity, one task per URL. */
+.hero-copy h1 { font-size: clamp(38px, 5.1vw, 64px); letter-spacing: -.035em; text-wrap: balance; }
+.pet-card { min-height: 0; }
+.pet-card-image { flex: none; min-height: 0; aspect-ratio: 4 / 3; border: 0; padding: 0; }
+.pet-card-image img { position: absolute; inset: 0; }
+.filter-button, .card-action, .text-link { min-height: 44px; }
+body[data-page] { min-height: 100vh; display: flex; flex-direction: column; }
+body[data-page] main { flex: 1; }
+.site-nav { gap: 18px; }
+.site-nav a { min-height: 44px; display: inline-flex; align-items: center; }
+.site-nav a[aria-current="page"] { color: var(--ink); font-weight: 800; text-decoration: underline; text-decoration-color: var(--warm-yellow); text-decoration-thickness: 3px; text-underline-offset: 8px; }
+.site-nav .nav-admin[aria-current="page"] { background: var(--ink); color: #fff; text-decoration: none; }
+.local-review-notice { background: var(--pale-yellow); color: #5d5131; font-size: 12px; }
+.local-review-notice .container { display: flex; gap: 12px; padding-block: 10px; }
+.local-review-notice strong { flex-shrink: 0; }
+.page-title { max-width: 850px; font-size: clamp(32px, 4vw, 50px); line-height: 1.3; letter-spacing: -.035em; text-wrap: balance; }
+.page-heading { padding-top: 66px; }
+.page-heading p { max-width: 65ch; margin: 0; color: var(--muted); }
+body[data-page="pets"] .pets-section, body[data-page="match"] .match-section, body[data-page="adoption"] .process-section { padding-top: 66px; }
+body[data-page="about"] .about-section { padding-top: 54px; }
+body[data-page="stories"] .story-section { padding: 42px 0 64px; }
+.stories-archive { padding-top: 62px; }
+.stories-archive .section-heading p { color: var(--muted); }
+.page-next { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding-block: 26px; margin-bottom: 48px; border-top: 1px solid var(--line); }
+.page-next p { margin: 0; color: var(--muted); font-size: 14px; }
+.page-next .text-link { flex-shrink: 0; min-height: 44px; }
+.pathways-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 90px; }
+.pathways-layout h2 { margin-bottom: 18px; }
+.pathways-layout p, .readiness-layout p { max-width: 65ch; color: var(--muted); font-size: 15px; line-height: 1.85; }
+.pathway-links { border-top: 1px solid var(--line); }
+.pathway-links a { display: flex; justify-content: space-between; align-items: center; gap: 24px; padding: 22px 0; border-bottom: 1px solid var(--line); transition: color .2s ease; }
+.pathway-links a:hover { color: #8f4c3b; }
+.pathway-links strong { display: block; font-size: 18px; }
+.pathway-links small { display: block; margin-top: 5px; color: var(--muted); font-size: 13px; }
+.readiness-layout { display: grid; grid-template-columns: 1.3fr .7fr; gap: 80px; align-items: center; }
+.readiness-actions { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; }
+.admin-page-panel { padding-block: 36px 54px; }
+.admin-page-panel .admin-shell { width: 100%; height: auto; min-height: 620px; grid-template-rows: auto auto 1fr; box-shadow: none; border: 1px solid var(--line); border-radius: var(--radius); }
+.admin-page-panel .admin-header h1 { margin: 0; font-family: var(--sans); font-size: 25px; letter-spacing: -.035em; color: #fff; }
+.admin-return { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; color: #fff; font-size: 13px; }
+.admin-return:hover { text-decoration: underline; text-underline-offset: 4px; }
+.admin-page-panel .admin-content { overflow: visible; min-width: 0; }
+.admin-page-panel .admin-layout { min-width: 0; }
+input, textarea { caret-color: var(--ink); }
+* { scrollbar-color: #a6a89e #f5f2e8; scrollbar-width: thin; }
+.dashboard-stat strong { font-variant-numeric: tabular-nums; }
+
+@media (max-width: 1000px) {
+  .header-inner { min-height: 68px; }
+  .menu-toggle { display: block; flex-shrink: 0; }
+  .site-nav { position: absolute; top: 68px; left: 0; right: 0; display: none; padding: 16px 20px 19px; border-bottom: 1px solid var(--soft-line); background: var(--cream); box-shadow: 0 16px 25px rgba(45,48,42,.08); }
+  .site-nav.open { display: grid; gap: 4px; }
+  .site-nav a { width: 100%; }
+  .site-nav .nav-admin { justify-content: center; margin-top: 6px; }
+  .pathways-layout, .readiness-layout { gap: 44px; }
+}
+
+@media (max-width: 680px) {
+  .hero-copy h1 { font-size: clamp(34px, 9.7vw, 38px); }
+  .local-review-notice .container { flex-direction: column; gap: 2px; }
+  body[data-page="pets"] .pets-section, body[data-page="match"] .match-section, body[data-page="adoption"] .process-section { padding-top: 38px; }
+  body[data-page="about"] .about-section { padding-top: 28px; }
+  .page-heading { padding-top: 38px; }
+  .page-title { font-size: clamp(30px, 8vw, 36px); }
+  .pathways-layout, .readiness-layout { grid-template-columns: 1fr; gap: 24px; }
+  .page-next { flex-direction: column; align-items: flex-start; gap: 10px; margin-bottom: 26px; }
+  .readiness-actions { align-items: stretch; }
+  .admin-page-panel { padding-block: 20px 30px; }
+  .admin-page-panel .admin-header { align-items: flex-start; gap: 10px; }
+  .admin-page-panel .admin-header h1 { font-size: 21px; }
+  .admin-return { font-size: 12px; min-height: 36px; }
+  .admin-page-panel .admin-shell { min-height: 560px; border-radius: 12px; }
+  .admin-page-panel .admin-notice { flex-direction: column; gap: 3px; }
 }
 
