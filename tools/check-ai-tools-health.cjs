@@ -14,8 +14,13 @@ const BASE = 'https://chuanzhibei-d3gvmowp1e63d7f33-1470251683.ap-shanghai.app.t
 let passed = 0;
 let failed = 0;
 function check(label, condition, detail = '') {
-  if (condition) { passed += 1; console.log(`  ✅ ${label}`); }
-  else { failed += 1; console.log(`  ❌ ${label}${detail ? ` —— ${detail}` : ''}`); }
+  if (condition) {
+    passed += 1;
+    console.log(`  ✅ ${label}`);
+  } else {
+    failed += 1;
+    console.log(`  ❌ ${label}${detail ? ` —— ${detail}` : ''}`);
+  }
 }
 
 (async () => {

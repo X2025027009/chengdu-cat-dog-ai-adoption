@@ -17,14 +17,41 @@ const { createKnowledge, buildChunks } = require('../functions/ai-stream/knowled
 let passed = 0;
 let failed = 0;
 function check(label, condition, detail = '') {
-  if (condition) { passed += 1; console.log(`  ✅ ${label}`); }
-  else { failed += 1; console.log(`  ❌ ${label}${detail ? ` —— ${detail}` : ''}`); }
+  if (condition) {
+    passed += 1;
+    console.log(`  ✅ ${label}`);
+  } else {
+    failed += 1;
+    console.log(`  ❌ ${label}${detail ? ` —— ${detail}` : ''}`);
+  }
 }
 
 const CORPUS = {
   pets: [
-    { id: 'pet-1', name: '喜豆', type: '狗狗', gender: '公', age: '1岁', status: '待领养', tags: ['亲人', '活泼'], description: '亲人活泼，喜欢跟人玩', health: '疫苗齐全', requirements: '封窗、家人同意' },
-    { id: 'pet-2', name: 'coco', type: '猫咪', gender: '公', age: '约7岁', status: '待领养', tags: ['安静'], description: '安静不爱动，大部分时间在睡觉', health: '过度肥胖，需要控制饮食', requirements: '' },
+    {
+      id: 'pet-1',
+      name: '喜豆',
+      type: '狗狗',
+      gender: '公',
+      age: '1岁',
+      status: '待领养',
+      tags: ['亲人', '活泼'],
+      description: '亲人活泼，喜欢跟人玩',
+      health: '疫苗齐全',
+      requirements: '封窗、家人同意'
+    },
+    {
+      id: 'pet-2',
+      name: 'coco',
+      type: '猫咪',
+      gender: '公',
+      age: '约7岁',
+      status: '待领养',
+      tags: ['安静'],
+      description: '安静不爱动，大部分时间在睡觉',
+      health: '过度肥胖，需要控制饮食',
+      requirements: ''
+    },
     { id: 'pet-3', name: '无要求', type: '猫咪', gender: '母', age: '2岁', status: '待领养', tags: [], description: '', health: '', requirements: '' }
   ],
   policy: { privacy_notice: '仅用于领养沟通与审核', retention_days: 180 },
@@ -70,9 +97,19 @@ function makeFake({ corpus = CORPUS, embedFails = false, matches = null } = {}) 
   check('没有领养要求的宠物不产生空块', !labels.includes('coco的领养要求'));
   check('档案内容包含名字与性格', chunks.find(c => c.sourceLabel === '喜豆的档案').content.includes('亲人活泼'));
   check('政策按字段拆开', labels.some(l => l.includes('隐私说明')) && labels.some(l => l.includes('保存期限')));
-  check('回访记录单独成块并带日期', labels.some(l => l.includes('回访记录') && l.includes('2026-09-01')));
-  check('没有任何内容是空的', chunks.every(c => c.content.trim().length > 0));
-  check('块内内容不超过上限', chunks.every(c => c.content.length <= 600), `最长 ${Math.max(...chunks.map(c => c.content.length))}`);
+  check(
+    '回访记录单独成块并带日期',
+    labels.some(l => l.includes('回访记录') && l.includes('2026-09-01'))
+  );
+  check(
+    '没有任何内容是空的',
+    chunks.every(c => c.content.trim().length > 0)
+  );
+  check(
+    '块内内容不超过上限',
+    chunks.every(c => c.content.length <= 600),
+    `最长 ${Math.max(...chunks.map(c => c.content.length))}`
+  );
 
   // ── ② 重建索引 ────────────────────────────────────────────
   console.log('\n【2】重建索引');

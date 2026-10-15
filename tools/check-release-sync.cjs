@@ -47,7 +47,8 @@ const FILES = siteFiles();
 function assetFiles() {
   const dir = path.join(ROOT, 'assets');
   if (!fs.existsSync(dir)) return [];
-  return fs.readdirSync(dir)
+  return fs
+    .readdirSync(dir)
     .filter(name => !name.startsWith('.'))
     .map(name => `assets/${name}`);
 }
@@ -58,8 +59,13 @@ const sha = buffer => crypto.createHash('sha256').update(buffer).digest('hex');
 let passed = 0;
 let failed = 0;
 function check(label, condition, detail = '') {
-  if (condition) { passed += 1; console.log(`  ✅ ${label}`); }
-  else { failed += 1; console.log(`  ❌ ${label}${detail ? ` —— ${detail}` : ''}`); }
+  if (condition) {
+    passed += 1;
+    console.log(`  ✅ ${label}`);
+  } else {
+    failed += 1;
+    console.log(`  ❌ ${label}${detail ? ` —— ${detail}` : ''}`);
+  }
 }
 
 (async () => {

@@ -652,15 +652,17 @@ function cosineSimilarity(a, b) {
  */
 async function diagnoseAiConfig(context) {
   await requireAdmin(context);
-  const payload = sqlResult(await executePgSql(
-    `SELECT jsonb_build_object(
+  const payload = sqlResult(
+    await executePgSql(
+      `SELECT jsonb_build_object(
        'deepseek', COALESCE((SELECT value->>'apiKey' FROM public.yard_settings WHERE key='ai_config' LIMIT 1), ''),
        'tokenhub', COALESCE((SELECT value->>'tokenhubApiKey' FROM public.yard_settings WHERE key='ai_config' LIMIT 1), ''),
        'petCount', (SELECT count(*) FROM public.pets WHERE is_published = TRUE),
        'photoCount', (SELECT count(*) FROM public.pet_media WHERE is_public = TRUE)
      ) AS result`,
-    await resolveSecret()
-  ));
+      await resolveSecret()
+    )
+  );
   const config = payload || {};
   const report = {
     ok: true,
@@ -762,8 +764,7 @@ const REVIEW_TOOLS = [
     type: 'function',
     function: {
       name: 'find_related_applications',
-      description:
-        '查同一位申请人（按联系方式匹配）在小院投递过的其它申请，用于识别「广撒网」或此前已申请过的情况。返回宠物名、提交时间与处理状态，**不含任何联系方式**。',
+      description: '查同一位申请人（按联系方式匹配）在小院投递过的其它申请，用于识别「广撒网」或此前已申请过的情况。返回宠物名、提交时间与处理状态，**不含任何联系方式**。',
       parameters: {
         type: 'object',
         properties: { contactNormalized: { type: 'string', description: '当前申请人的联系方式（已归一化）' } },
@@ -806,13 +807,18 @@ async function runReviewTool(name, rawArguments, secret) {
   try {
     if (name === 'get_pet_profile') {
       if (!petId) return { ok: false, message: '缺少宠物编号。' };
-      const payload = sqlResult(await executePgSql(`SELECT COALESCE((
+      const payload = sqlResult(
+        await executePgSql(
+          `SELECT COALESCE((
           SELECT jsonb_build_object('name', name, 'type', pet_type, 'status', adoption_status,
             'gender', gender, 'age', age_text, 'tags', tags,
             'description', description, 'health', health, 'requirements', requirements,
             'pauseReason', pause_reason)
           FROM public.pets WHERE id = ${sqlLiteral(petId)} LIMIT 1
-        ), 'null'::jsonb) AS result`, secret));
+        ), 'null'::jsonb) AS result`,
+          secret
+        )
+      );
       return payload && payload.name ? { ok: true, pet: payload } : { ok: false, message: '没有找到这只宠物。' };
     }
 
@@ -820,7 +826,9 @@ async function runReviewTool(name, rawArguments, secret) {
       const contact = text(args.contactNormalized, 120);
       if (!contact) return { ok: false, message: '缺少联系方式。' };
       // 刻意只取宠物名、时间、状态，不取联系方式与他人姓名
-      const payload = sqlResult(await executePgSql(`SELECT jsonb_build_object(
+      const payload = sqlResult(
+        await executePgSql(
+          `SELECT jsonb_build_object(
           'total', count(*),
           'items', COALESCE(jsonb_agg(jsonb_build_object(
             'petName', COALESCE(p.name, ''), 'submittedAt', a.submitted_at::text,
@@ -828,28 +836,41 @@ async function runReviewTool(name, rawArguments, secret) {
           ) ORDER BY a.submitted_at DESC), '[]'::jsonb)
         ) AS result
         FROM public.applications a LEFT JOIN public.pets p ON p.id = a.pet_id
-        WHERE a.contact_normalized = ${sqlLiteral(contact)}`, secret));
+        WHERE a.contact_normalized = ${sqlLiteral(contact)}`,
+          secret
+        )
+      );
       return { ok: true, total: Number(payload?.total) || 0, items: payload?.items || [] };
     }
 
     if (name === 'get_pet_follow_ups') {
       if (!petId) return { ok: false, message: '缺少宠物编号。' };
-      const payload = sqlResult(await executePgSql(`SELECT jsonb_build_object('updates', COALESCE(jsonb_agg(jsonb_build_object(
+      const payload = sqlResult(
+        await executePgSql(
+          `SELECT jsonb_build_object('updates', COALESCE(jsonb_agg(jsonb_build_object(
             'date', update_date::text, 'title', title, 'body', body
           ) ORDER BY update_date DESC), '[]'::jsonb)) AS result
-          FROM (SELECT update_date, title, body FROM public.pet_updates WHERE pet_id = ${sqlLiteral(petId)} ORDER BY update_date DESC LIMIT 10) t`, secret));
+          FROM (SELECT update_date, title, body FROM public.pet_updates WHERE pet_id = ${sqlLiteral(petId)} ORDER BY update_date DESC LIMIT 10) t`,
+          secret
+        )
+      );
       return { ok: true, total: (payload?.updates || []).length, updates: payload?.updates || [] };
     }
 
     if (name === 'get_pet_application_stats') {
       if (!petId) return { ok: false, message: '缺少宠物编号。' };
-      const payload = sqlResult(await executePgSql(`SELECT jsonb_build_object(
+      const payload = sqlResult(
+        await executePgSql(
+          `SELECT jsonb_build_object(
           'total', count(*),
           'byStatus', COALESCE(jsonb_object_agg(internal_status, n), '{}'::jsonb)
         ) AS result FROM (
           SELECT internal_status, count(*) AS n FROM public.applications
           WHERE pet_id = ${sqlLiteral(petId)} GROUP BY internal_status
-        ) s CROSS JOIN LATERAL (SELECT 1) _`, secret));
+        ) s CROSS JOIN LATERAL (SELECT 1) _`,
+          secret
+        )
+      );
       // jsonb_object_agg 在零行时会是 NULL，这里补一下总数
       const total = Number(payload?.total) || 0;
       return { ok: true, total, byStatus: payload?.byStatus || {} };
@@ -1014,8 +1035,7 @@ async function summarizeApplication(event, context) {
    * 资料改过之后旧摘要的依据已经变了，必须重新生成，界面也会提示。
    * 管理员想强制重算时传 force。
    */
-  const cacheFresh = Boolean(detail.cached)
-    && String(detail.cachedFor || '') === String(detail.currentUpdatedAt || '');
+  const cacheFresh = Boolean(detail.cached) && String(detail.cachedFor || '') === String(detail.currentUpdatedAt || '');
   if (cacheFresh && event.force !== true) {
     return { ok: true, cached: true, cachedAt: detail.cachedAt, ...detail.cached };
   }
@@ -1047,9 +1067,13 @@ async function summarizeApplication(event, context) {
       steps: review.steps,
       summary: {
         headline: text(parsed.headline, 120),
-        fit: Array.isArray(parsed.fit) ? parsed.fit.slice(0, 8).map(item => ({
-          label: text(item?.label, 40), status: text(item?.status, 20), note: text(item?.note, 200)
-        })) : [],
+        fit: Array.isArray(parsed.fit)
+          ? parsed.fit.slice(0, 8).map(item => ({
+              label: text(item?.label, 40),
+              status: text(item?.status, 20),
+              note: text(item?.note, 200)
+            }))
+          : [],
         questions: Array.isArray(parsed.questions) ? parsed.questions.slice(0, 3).map(item => text(item, 200)) : [],
         caution: text(parsed.caution, 200)
       }
@@ -1123,7 +1147,9 @@ async function describePetPhoto(event, context) {
     '**只描述照片里看得见的东西**：毛色与花纹、体型、耳朵与尾巴的特征、大致年龄感、精神状态、看起来是否亲人。',
     '**不要臆测性格、病史、是否绝育、是否打过疫苗**——这些照片看不出来。',
     '不要写"这只可爱的猫咪"这类套话，直接写具体特征。只输出描述本身，不要任何前后缀。'
-  ].filter(Boolean).join('\n');
+  ]
+    .filter(Boolean)
+    .join('\n');
 
   const response = await fetch(TOKENHUB_CHAT_URL, {
     method: 'POST',
@@ -1157,7 +1183,9 @@ async function describePetPhoto(event, context) {
   } catch {
     return { ok: false, message: `视觉服务返回无法解析的内容：${text(raw, 200)}` };
   }
-  const description = text(data?.choices?.[0]?.message?.content, 400).replace(/^["「『]|["」』]$/g, '').trim();
+  const description = text(data?.choices?.[0]?.message?.content, 400)
+    .replace(/^["「『]|["」』]$/g, '')
+    .trim();
   if (!description) return { ok: false, message: '视觉服务没有返回描述内容。' };
   return { ok: true, description, model: TOKENHUB_VISION_MODEL, usage: data?.usage || null };
 }

@@ -26,8 +26,10 @@ function extractSettingsFunction() {
   let depth = 0;
   let begun = false;
   for (let i = start; i < source.length; i += 1) {
-    if (source[i] === '{') { depth += 1; begun = true; }
-    else if (source[i] === '}') {
+    if (source[i] === '{') {
+      depth += 1;
+      begun = true;
+    } else if (source[i] === '}') {
       depth -= 1;
       if (begun && depth === 0) return source.slice(start, i + 1);
     }
@@ -41,8 +43,13 @@ let passed = 0;
 let failed = 0;
 
 function check(labelText, condition, detail = '') {
-  if (condition) { passed += 1; console.log(`  ✅ ${labelText}`); }
-  else { failed += 1; console.log(`  ❌ ${labelText}${detail ? ` —— ${detail}` : ''}`); }
+  if (condition) {
+    passed += 1;
+    console.log(`  ✅ ${labelText}`);
+  } else {
+    failed += 1;
+    console.log(`  ❌ ${labelText}${detail ? ` —— ${detail}` : ''}`);
+  }
 }
 
 console.log('管理员设置表单结构检查\n');

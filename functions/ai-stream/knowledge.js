@@ -30,7 +30,9 @@ const MIN_SIMILARITY = 0.3;
 const DEFAULT_TOP_K = 4;
 
 function clip(value, max) {
-  return String(value ?? '').trim().slice(0, max);
+  return String(value ?? '')
+    .trim()
+    .slice(0, max);
 }
 function quote(value) {
   return value === null || value === undefined ? 'NULL' : `'${String(value).replace(/'/g, "''")}'`;
@@ -62,7 +64,9 @@ function buildChunks({ pets, policy, updates }) {
       pet.description ? `性格与情况：${clip(pet.description, 400)}` : '',
       pet.health ? `健康情况：${clip(pet.health, 300)}` : '',
       pet.pauseReason ? `暂不开放原因：${clip(pet.pauseReason, 200)}` : ''
-    ].filter(Boolean).join('\n');
+    ]
+      .filter(Boolean)
+      .join('\n');
     chunks.push({
       id: `pet:${clip(pet.id, 80)}:profile`,
       sourceType: 'pet',
@@ -149,10 +153,7 @@ function createKnowledge({ query, embed }) {
   function needsRebuild(corpus) {
     if (!Number(corpus?.chunkCount)) return true;
     const indexed = Date.parse(corpus.lastIndexedAt || '') || 0;
-    const newest = Math.max(
-      Date.parse(corpus.petUpdatedAt || '') || 0,
-      Date.parse(corpus.updateAt || '') || 0
-    );
+    const newest = Math.max(Date.parse(corpus.petUpdatedAt || '') || 0, Date.parse(corpus.updateAt || '') || 0);
     return newest > indexed;
   }
 
@@ -170,10 +171,12 @@ function createKnowledge({ query, embed }) {
         return { ok: false, message: `向量化返回数量不符（期望 ${batch.length}，实际 ${vectors?.length ?? 0}）。` };
       }
       // 一条 SQL 写入整批，减少往返
-      const values = batch.map((chunk, index) => {
-        const vector = Array.isArray(vectors[index]) && vectors[index].length ? vectorLiteral(vectors[index]) : 'NULL';
-        return `(${quote(chunk.id)}, ${quote(chunk.sourceType)}, ${quote(chunk.sourceId)}, ${quote(chunk.sourceLabel)}, ${quote(chunk.content)}, ${vector}, NOW())`;
-      }).join(',\n');
+      const values = batch
+        .map((chunk, index) => {
+          const vector = Array.isArray(vectors[index]) && vectors[index].length ? vectorLiteral(vectors[index]) : 'NULL';
+          return `(${quote(chunk.id)}, ${quote(chunk.sourceType)}, ${quote(chunk.sourceId)}, ${quote(chunk.sourceLabel)}, ${quote(chunk.content)}, ${vector}, NOW())`;
+        })
+        .join(',\n');
       const sql = `WITH upserted AS (
           INSERT INTO public.knowledge_chunks (id, source_type, source_id, source_label, content, embedding, updated_at)
           VALUES ${values}
@@ -244,9 +247,7 @@ function createKnowledge({ query, embed }) {
       count: matches.length,
       matches,
       sources: [...new Set(matches.map(item => item.label))],
-      hint: matches.length
-        ? '以上是小院资料里与问题最相关的片段，请据此回答。'
-        : '知识库里没有找到相关内容。请如实告诉访客没有相关资料，**不要凭印象作答**。'
+      hint: matches.length ? '以上是小院资料里与问题最相关的片段，请据此回答。' : '知识库里没有找到相关内容。请如实告诉访客没有相关资料，**不要凭印象作答**。'
     };
   }
 

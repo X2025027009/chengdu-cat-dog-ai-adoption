@@ -602,9 +602,7 @@ async function resolveTokenhubKey() {
   if (fromEnv) return fromEnv;
   if (cachedTokenhubKey !== null && Date.now() - cachedTokenhubKeyAt < API_KEY_CACHE_MS) return cachedTokenhubKey;
   try {
-    const response = await executePgSql(
-      "SELECT jsonb_build_object('key', COALESCE((SELECT value->>'tokenhubApiKey' FROM public.yard_settings WHERE key='ai_config' LIMIT 1), '')) AS result"
-    );
+    const response = await executePgSql("SELECT jsonb_build_object('key', COALESCE((SELECT value->>'tokenhubApiKey' FROM public.yard_settings WHERE key='ai_config' LIMIT 1), '')) AS result");
     cachedTokenhubKey = text(sqlResult(response)?.key, 200);
   } catch (error) {
     console.error('读取 TokenHub 配置失败：', error.message);
@@ -811,7 +809,9 @@ const server = http.createServer(async (req, res) => {
   if (url.includes('/health/tools')) {
     const deep = url.includes('deep=1');
     const tools = await runToolSmokeTests({ deep });
-    const failures = Object.entries(tools).filter(([, item]) => !item.ok).map(([name]) => name);
+    const failures = Object.entries(tools)
+      .filter(([, item]) => !item.ok)
+      .map(([name]) => name);
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify({ ok: failures.length === 0, failures, tools, deep, time: new Date().toISOString() }));
     return;

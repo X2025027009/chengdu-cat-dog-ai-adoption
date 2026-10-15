@@ -31,7 +31,7 @@ export default [
 
   // ① 站点脚本：浏览器环境
   {
-    files: ['app.js'],
+    files: ['app.js', 'site-config.js'],
     languageOptions: {
       ecmaVersion: 2023,
       sourceType: 'script',

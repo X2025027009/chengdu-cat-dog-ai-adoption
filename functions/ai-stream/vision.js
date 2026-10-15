@@ -33,7 +33,9 @@ const MIN_SIMILARITY = 0.5;
 const ALLOWED_HOST = /(^|\.)(tcloudbasegateway\.com|tcb\.qcloud\.la|myqcloud\.com|tcloudbaseapp\.com)$/i;
 
 function clip(value, max) {
-  return String(value ?? '').trim().slice(0, max);
+  return String(value ?? '')
+    .trim()
+    .slice(0, max);
 }
 function quote(value) {
   return value === null || value === undefined ? 'NULL' : `'${String(value).replace(/'/g, "''")}'`;
@@ -78,19 +80,28 @@ function createVision({ query, embedImage }) {
   /** 校验 storage_path 确实属于本站的宠物照片，避免被塞入任意路径。 */
   async function filterKnownPaths(photos) {
     const raw = Array.isArray(photos) ? photos : [];
-    const shaped = raw
-      .map(item => ({
-        path: clip(item?.path, 300),
-        url: clip(item?.url, 2000),
-        petId: clip(item?.petId, 80),
-        petName: clip(item?.petName, 40),
-        isCover: item?.isCover === true
-      }));
+    const shaped = raw.map(item => ({
+      path: clip(item?.path, 300),
+      url: clip(item?.url, 2000),
+      petId: clip(item?.petId, 80),
+      petName: clip(item?.petName, 40),
+      isCover: item?.isCover === true
+    }));
     // 诊断信息：出错时把"卡在哪一步"说清楚，而不是只回一句笼统的失败。
     // 只记录域名，不记录完整地址（签名有效期很短，也没必要外传）。
-    const hosts = [...new Set(shaped.map(item => {
-      try { return new URL(item.url).hostname; } catch { return ''; }
-    }).filter(Boolean))].slice(0, 4);
+    const hosts = [
+      ...new Set(
+        shaped
+          .map(item => {
+            try {
+              return new URL(item.url).hostname;
+            } catch {
+              return '';
+            }
+          })
+          .filter(Boolean)
+      )
+    ].slice(0, 4);
     const diagnostics = {
       received: raw.length,
       missingPath: shaped.filter(item => !item.path).length,
@@ -98,9 +109,7 @@ function createVision({ query, embedImage }) {
       hosts
     };
 
-    const candidates = shaped
-      .filter(item => item.path && item.petId && isAllowedUrl(item.url, item.path))
-      .slice(0, MAX_PHOTOS);
+    const candidates = shaped.filter(item => item.path && item.petId && isAllowedUrl(item.url, item.path)).slice(0, MAX_PHOTOS);
     if (!candidates.length) return { valid: [], diagnostics };
 
     const known = await query(
@@ -117,9 +126,10 @@ function createVision({ query, embedImage }) {
   async function ensureIndexed(photos) {
     const { valid, diagnostics } = await filterKnownPaths(photos);
     if (!valid.length) {
-      const why = diagnostics.received === 0
-        ? '前端没有传任何宠物照片（可能宠物资料还没加载完）'
-        : `收到 ${diagnostics.received} 张，其中地址被拒 ${diagnostics.rejectedUrl} 张、路径不存在 ${diagnostics.unknownPath ?? 0} 张；域名：${diagnostics.hosts.join('、') || '无法解析'}`;
+      const why =
+        diagnostics.received === 0
+          ? '前端没有传任何宠物照片（可能宠物资料还没加载完）'
+          : `收到 ${diagnostics.received} 张，其中地址被拒 ${diagnostics.rejectedUrl} 张、路径不存在 ${diagnostics.unknownPath ?? 0} 张；域名：${diagnostics.hosts.join('、') || '无法解析'}`;
       return { ok: false, message: `没有可用的宠物照片 —— ${why}` };
     }
 

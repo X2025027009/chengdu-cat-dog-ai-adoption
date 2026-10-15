@@ -12,8 +12,13 @@ const { isAllowedUrl } = require('../functions/ai-stream/vision.js');
 let passed = 0;
 let failed = 0;
 function check(label, condition, detail = '') {
-  if (condition) { passed += 1; console.log(`  ✅ ${label}`); }
-  else { failed += 1; console.log(`  ❌ ${label}${detail ? ` —— ${detail}` : ''}`); }
+  if (condition) {
+    passed += 1;
+    console.log(`  ✅ ${label}`);
+  } else {
+    failed += 1;
+    console.log(`  ❌ ${label}${detail ? ` —— ${detail}` : ''}`);
+  }
 }
 
 const PATH = 'pets/pet-123/abc.jpg';

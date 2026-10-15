@@ -84,8 +84,7 @@ const TOOL_DEFINITIONS = [
     type: 'function',
     function: {
       name: 'get_adoption_policy',
-      description:
-        '读取小院的领养政策原文，包含领养流程、是否收费、回访安排等。访客问「怎么领养」「要花钱吗」「会不会回访」「需要什么条件」这类问题时使用。',
+      description: '读取小院的领养政策原文，包含领养流程、是否收费、回访安排等。访客问「怎么领养」「要花钱吗」「会不会回访」「需要什么条件」这类问题时使用。',
       parameters: { type: 'object', properties: {} }
     }
   },
@@ -142,7 +141,10 @@ const REQUIREMENT_CHECKS = [
 ];
 
 function makeHelpers() {
-  const clip = (value, max) => String(value ?? '').trim().slice(0, max);
+  const clip = (value, max) =>
+    String(value ?? '')
+      .trim()
+      .slice(0, max);
   const quote = value => (value === null || value === undefined ? 'NULL' : `'${String(value).replace(/'/g, "''")}'`);
   return { clip, quote };
 }
@@ -159,10 +161,7 @@ function createToolkit({ query, knowledge }) {
 
   /** 统一的工具超时包装：超时不抛错，而是回一句可读的降级说明。 */
   async function runWithTimeout(run) {
-    return Promise.race([
-      run(),
-      new Promise(resolve => setTimeout(() => resolve({ ok: false, message: '查询超时，请改用更简单的条件重试。' }), TOOL_TIMEOUT_MS))
-    ]);
+    return Promise.race([run(), new Promise(resolve => setTimeout(() => resolve({ ok: false, message: '查询超时，请改用更简单的条件重试。' }), TOOL_TIMEOUT_MS))]);
   }
 
   /** 把宠物行统一成对模型友好的结构，同时裁掉无用字段。 */
@@ -199,9 +198,7 @@ function createToolkit({ query, knowledge }) {
     if (keyword) {
       // 标签是数组，先转成文本再匹配；命中的记录优先排在前面
       const like = quote(`%${keyword}%`);
-      conditions.push(
-        `(description ILIKE ${like} OR requirements ILIKE ${like} OR health ILIKE ${like} OR array_to_string(tags, ' ') ILIKE ${like})`
-      );
+      conditions.push(`(description ILIKE ${like} OR requirements ILIKE ${like} OR health ILIKE ${like} OR array_to_string(tags, ' ') ILIKE ${like})`);
     }
     const sql = `SELECT jsonb_build_object('pets', COALESCE(jsonb_agg(to_jsonb(t)), '[]'::jsonb)) AS result FROM (
         SELECT ${PET_COLUMNS} FROM public.pets
