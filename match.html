@@ -60,11 +60,13 @@
       <section class="section match-section" id="match">
         <div class="container">
           <div class="match-intro">
+            <figure class="page-hero-photo page-hero-photo-match">
+              <img src="assets/real/courtyard-brown-dog.png" alt="棕色小狗站在小院里" />
+            </figure>
             <div>
               <h1 class="page-title">先聊一聊，再决定申请谁</h1>
               <p>说说你的生活，找到适合的伙伴。</p>
             </div>
-            <div class="match-intro-art" aria-hidden="true"></div>
           </div>
 
           <div class="match-panel">
@@ -79,7 +81,7 @@
               <textarea id="matchInput" name="message" rows="2" maxlength="600" placeholder="例如：我和家人一起住，白天有人在家，有养猫经验，想找一只性格温和的狗狗。" required></textarea>
               <div class="match-actions">
                 <button class="button button-primary" type="submit" id="matchSubmit">开始匹配</button>
-                <button class="button button-ghost match-voice" type="button" id="matchVoice" hidden aria-pressed="false">
+                <button class="button button-ghost match-voice" type="button" id="matchVoice" aria-pressed="false">
                   <svg class="match-voice-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                     <rect x="9" y="3" width="6" height="12" rx="3" stroke="currentColor" stroke-width="1.8" />
                     <path d="M6 11a6 6 0 0 0 12 0M12 17v4m-4 0h8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" /></svg
@@ -87,6 +89,7 @@
                 </button>
                 <button class="button button-ghost" type="button" id="matchReset" hidden>重新开始</button>
               </div>
+              <p class="match-voice-hint" id="matchVoiceHint" role="status" hidden></p>
             </form>
 
             <p class="match-mode-hint" id="matchModeHint" hidden></p>

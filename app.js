@@ -1096,6 +1096,16 @@ function renderAdminAccessGate(message = '') {
 function renderAdmin() {
   const content = $('#adminContent');
   if (!content) return;
+  const art = $('#adminTabArt');
+  if (art) {
+    const artwork = {
+      overview: 'assets/brand/admin-play-and-stretch.png',
+      pets: 'assets/brand/admin-cushion-peek.png',
+      applications: 'assets/brand/admin-walk-together.png',
+      settings: 'assets/brand/companions.png'
+    };
+    art.src = artwork[adminTab];
+  }
   if (!adminAccessGranted) { renderAdminAccessGate(); return; }
   $$('.admin-nav-button').forEach(button => {
     const active = button.dataset.adminTab === adminTab;
@@ -2578,10 +2588,11 @@ function matchAppendSources(items) {
  * 写着「上了年纪的申请人自己改不动网站」。让他们用说的，比逼他们打字现实得多。
  *
  * 几点取舍：
- *   - 用浏览器自带能力，不接第三方语音服务：零成本、无需额外密钥；
+ *   - 用浏览器提供的识别接口，无需站点额外密钥；浏览器自身可能连接语音服务，
+ *     因此本地审核模式不启动识别；
  *   - 识别结果直接追加到输入框，申请人可以在发送前自己修改——
  *     语音识别会出错，不能识别完就替他发出去；
- *   - 浏览器不支持时按钮直接隐藏，不显示一个点了没反应的按钮。
+ *   - 本地审核和不支持的浏览器仍展示入口，但说明为何不可用。
  */
 const matchVoiceState = { recognition: null, listening: false, baseText: '' };
 
@@ -2607,13 +2618,17 @@ function matchVoiceStop() {
 function initMatchVoice() {
   const button = $('#matchVoice');
   if (!button) return;
+  const hint = $('#matchVoiceHint');
   // Browser speech recognition may use a remote service; keep local review isolated.
-  if (LOCAL_REVIEW) { button.hidden = true; return; }
-  if (!matchVoiceSupported()) {
-    button.hidden = true;
-    return;
+  const unavailableReason = LOCAL_REVIEW
+    ? '本地审核不会调用浏览器语音识别服务；正式使用时可在受支持的浏览器中启用。'
+    : (!matchVoiceSupported() ? '当前浏览器不支持语音输入，可以直接打字。' : '');
+  button.disabled = Boolean(unavailableReason);
+  if (hint) {
+    hint.hidden = !unavailableReason;
+    hint.textContent = unavailableReason;
   }
-  button.hidden = false;
+  if (unavailableReason) return;
   button.addEventListener('click', () => {
     if (matchVoiceState.listening) { matchVoiceStop(); return; }
     const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -2653,6 +2668,7 @@ function initMatchVoice() {
     } catch {
       matchVoiceState.listening = false;
       matchVoiceSetLabel(false);
+      toast('语音识别没能启动，可以直接打字。');
     }
   });
 }

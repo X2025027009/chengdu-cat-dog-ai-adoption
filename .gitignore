@@ -1,6 +1,8 @@
 # 本地依赖和临时文件
 docs/build/
 docs/output/
+docs/previews/
+docs/真实图片/
 tmp/
 output/playwright/
 .playwright-cli/

@@ -14,7 +14,20 @@ const originalPhotoSha256 = '67f2f004cfb47b2b3251205132612c5179d55e48fd7deb19d07
 const requiredIds = {
   'index.html': ['stats', 'homeGroupPhoto', 'homePetsGrid', 'homePetsEmpty', 'heroFeatureImage', 'heroFeatureName', 'heroFeatureDescription', 'heroFeatureButton'],
   'pets.html': ['petGrid', 'emptyState'],
-  'match.html': ['matchThread', 'matchForm', 'matchInput', 'matchSubmit', 'matchReset', 'matchVoice', 'matchVoiceText', 'matchPhotoFile', 'matchPhotoLabel', 'matchPhotoResult', 'matchModeHint'],
+  'match.html': [
+    'matchThread',
+    'matchForm',
+    'matchInput',
+    'matchSubmit',
+    'matchReset',
+    'matchVoice',
+    'matchVoiceText',
+    'matchVoiceHint',
+    'matchPhotoFile',
+    'matchPhotoLabel',
+    'matchPhotoResult',
+    'matchModeHint'
+  ],
   'adoption.html': ['how'],
   'stories.html': ['storyFeatureImage', 'storyFeatureLabel', 'storyFeatureHeading', 'storyFeatureDescription', 'storyFeatureButton', 'storiesGrid', 'storiesEmpty'],
   'about.html': ['contactList', 'contactButton', 'contactCard'],
@@ -79,6 +92,24 @@ function checkSharedPage(name, html) {
 
 console.log('UI refresh structure checks (local files only)');
 const parsed = Object.fromEntries(pageNames.map(name => [name, checkSharedPage(name, files[name])]));
+const sectionPhotos = {
+  'pets.html': 'assets/real/courtyard-cat.png',
+  'match.html': 'assets/real/courtyard-brown-dog.png',
+  'adoption.html': 'assets/real/courtyard-white-dog.png',
+  'stories.html': 'assets/real/courtyard-black-dog.png',
+  'about.html': 'assets/real/courtyard-people-dogs.jpg'
+};
+for (const [page, asset] of Object.entries(sectionPhotos)) {
+  const photo = parsed[page].find(tag => tag.name === 'img' && tag.attrs.src === asset);
+  check(`${page}: has its own real section photo with alt text`, Boolean(photo?.attrs.alt?.trim()));
+  check(`${page}: section photo exists`, fs.existsSync(path.join(root, asset)));
+}
+const css = fs.readFileSync(path.join(root, 'styles.css'), 'utf8');
+for (let number = 1; number <= 8; number += 1) {
+  const name = `S${number}-`;
+  const asset = fs.readdirSync(path.join(root, 'assets/brand/decor')).find(file => file.startsWith(name));
+  check(`decor: ${name} asset is used`, Boolean(asset && css.includes(`assets/brand/decor/${asset}`)));
+}
 
 const home = parsed['index.html'];
 const groupPhoto = byId(home, 'homeGroupPhoto');
@@ -117,6 +148,9 @@ check(
 check('match: photo picker remains a file input', byId(match, 'matchPhotoFile')?.name === 'input' && byId(match, 'matchPhotoFile')?.attrs.type === 'file');
 check('match: photo picker remains keyboard focusable', !Object.hasOwn(byId(match, 'matchPhotoFile')?.attrs ?? {}, 'hidden'));
 check('match: photo handling copy does not promise unverified retention', !files['match.html'].includes('照片只用于本次比对，不会保存'));
+check('match: voice entry is visible before scripting', !Object.hasOwn(byId(match, 'matchVoice')?.attrs ?? {}, 'hidden'));
+const app = fs.readFileSync(path.join(root, 'app.js'), 'utf8');
+check('match: local review disables rather than hides browser speech', app.includes('button.disabled = Boolean(unavailableReason)') && !app.includes('button.hidden = true'));
 
 const adoption = parsed['adoption.html'];
 check(
@@ -139,6 +173,11 @@ check(
   'admin: retains all four work areas',
   ['overview', 'pets', 'applications', 'settings'].every(tab => adminTabs.filter(value => value === tab).length === 1)
 );
+const adminArt = byId(admin, 'adminTabArt');
+check('admin: tab illustration is present', adminArt?.name === 'img');
+for (const asset of ['admin-play-and-stretch.png', 'admin-cushion-peek.png', 'admin-walk-together.png', 'companions.png']) {
+  check(`admin: ${asset} is mapped to a tab`, app.includes(`assets/brand/${asset}`) && fs.existsSync(path.join(root, 'assets/brand', asset)));
+}
 
 console.log(`${passed} checks passed; ${failures.length} failed.`);
 for (const failure of failures) console.error(`- ${failure}`);

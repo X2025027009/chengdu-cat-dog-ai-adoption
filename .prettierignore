@@ -6,6 +6,7 @@ node_modules/
 release/
 web/
 tools/env-migration/
+docs/previews/
 
 # 锁文件由 npm 生成，不该由格式化工具改写
 package-lock.json

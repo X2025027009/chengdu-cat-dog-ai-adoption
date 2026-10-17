@@ -1019,17 +1019,27 @@ input, textarea { caret-color: #b87422; }
 
 /* 档案页：筛选与真实档案照片是主角。 */
 body[data-page="pets"] .pets-section { padding: 45px 0 28px; background: var(--cream); }
-.pets-page-top { min-height: 214px; display: grid; grid-template-columns: 1fr 340px; align-items: center; gap: 24px; }
+.pets-page-top { min-height: 250px; display: grid; grid-template-columns: minmax(220px,.78fr) minmax(0,1.22fr); align-items: center; gap: 36px; padding-bottom: 22px; }
 .pets-intro { margin: 0; }
 .pets-intro .page-title { margin: 0 0 12px; font-size: clamp(41px, 4.4vw, 62px); }
 .pets-intro p, .stories-intro p { margin: 0; color: #36332e; font-size: clamp(17px, 1.65vw, 23px); }
-.page-illustration-pets { height: 205px; background: url("assets/brand/companions.png") center bottom / contain no-repeat; }
+.page-hero-photo { min-width: 0; margin: 0; padding: 8px; overflow: hidden; border: 1px solid #eadab7; border-radius: 28px; background: #fff9e8; transform: rotate(-1.2deg); }
+.page-hero-photo img { display: block; width: 100%; height: 225px; border-radius: 21px; object-fit: cover; }
+.page-hero-photo-pets img { object-position: center 52%; }
+.page-hero-photo-match img { object-position: center 47%; }
+.page-hero-photo-adoption img { object-position: center 42%; }
+.page-hero-photo-stories img { object-position: center 44%; }
+.page-hero-photo-about img { object-position: center 53%; }
+.pets-intro .page-title::after, .stories-intro .page-title::after { content: ""; width: 42px; height: 42px; display: inline-block; margin-left: 9px; vertical-align: middle; background: url("assets/brand/decor/S1-paw-outline.svg") center / contain no-repeat; }
+.stories-intro .page-title::after { width: 58px; background-image: url("assets/brand/decor/S2-paw-trail.svg"); }
 .pets-filter-stack { display: grid; justify-content: start; gap: 9px; padding: 0 0 20px; border: 0; }
 .pets-filter-stack .filter-group { gap: 8px; }
 .filter-button { min-height: 42px; padding: 8px 18px; background: #f6f2e9; color: var(--ink); font-size: 14px; }
 .filter-button:hover { border-color: #e3ce9d; background: #fff5da; }
 .filter-button.active, .filter-group-secondary .filter-button.active { background: var(--warm-yellow); color: var(--ink); }
 .filter-group-secondary .filter-button { background: transparent; border-color: var(--soft-line); }
+.filter-type[data-value="猫咪"]::before, .filter-type[data-value="狗狗"]::before { content: ""; display: inline-block; width: 20px; height: 20px; margin: -3px 5px -4px 0; background: url("assets/brand/decor/S6-fish.svg") center / contain no-repeat; }
+.filter-type[data-value="狗狗"]::before { background-image: url("assets/brand/decor/S7-bone.svg"); }
 .pet-grid { gap: 26px; padding-top: 0; }
 .pet-card { background: transparent; }
 .pet-card-image { aspect-ratio: 1.48; border-radius: 15px; }
@@ -1044,20 +1054,19 @@ body[data-page="pets"] .pets-section { padding: 45px 0 28px; background: var(--c
 .card-action { margin-top: 11px; padding: 0 12px; border-radius: 999px; background: var(--warm-yellow); }
 .card-action:hover { background: #f9d37a; }
 .pets-ai-cta { min-height: 116px; display: grid; grid-template-columns: 95px 1fr auto; align-items: center; gap: 22px; margin-bottom: 28px; padding: 16px 24px; border: 0; border-radius: 18px; background: var(--pale-yellow); }
-.cta-illustration { height: 85px; background: url("assets/brand/companions.png") center / contain no-repeat; }
+.cta-illustration { height: 85px; background: url("assets/brand/decor/S3-cat-peek.svg") center bottom / contain no-repeat; }
 .cta-copy h2 { margin: 0 0 3px; font-size: 23px; }
 .cta-copy p { margin: 0; color: var(--muted); }
 
 /* AI 匹配页：保留动态消息、语音、照片与状态提示的事件接口。 */
 body[data-page="match"] .match-section { padding: 40px 0 20px; background: var(--cream); }
-.match-intro { min-height: 175px; display: grid; grid-template-columns: 1fr 350px; align-items: center; gap: 25px; }
+.match-intro { min-height: 250px; display: grid; grid-template-columns: minmax(220px,.78fr) minmax(0,1.22fr); align-items: center; gap: 36px; padding-bottom: 22px; }
 .match-intro .page-title { margin: 0 0 11px; font-size: clamp(38px, 4.2vw, 59px); }
 .match-intro p { margin: 0; color: #39352e; font-size: clamp(17px, 1.6vw, 23px); }
-.match-intro-art { height: 180px; background: url("assets/brand/adoption-companions.png") center bottom / contain no-repeat; }
 .match-panel { gap: 14px; padding: 28px 32px; border: 1px solid #edcf87; border-radius: 20px; background: #fffefa; box-shadow: none; }
 .match-panel-heading { display: flex; align-items: center; gap: 12px; }
 .match-panel-heading h2 { margin: 0; font-size: 22px; }
-.match-assistant-icon { width: 43px; height: 43px; display: block; border-radius: 50%; background: var(--pale-yellow) url("assets/brand/friends-mark.svg") center / 34px no-repeat; font-size: 0; }
+.match-assistant-icon { width: 43px; height: 43px; display: block; border-radius: 50%; background: var(--pale-yellow) url("assets/brand/decor/S5-heart-paw.svg") center / 30px no-repeat; font-size: 0; }
 .match-thread { min-height: 135px; max-height: 440px; padding: 12px 0 4px; }
 .match-bubble.is-ai { background: #fff3d0; border-color: transparent; }
 .match-chip { background: #fff3d0; border-color: transparent; }
@@ -1067,6 +1076,8 @@ body[data-page="match"] .match-section { padding: 40px 0 20px; background: var(-
 .match-form textarea:focus { outline: 2px solid #d9ab4f; outline-offset: 1px; }
 .match-actions { justify-content: flex-end; }
 .match-actions .button-primary { min-width: 170px; }
+.match-voice-hint { margin: 2px 0 0; color: var(--muted); font-size: 12px; }
+.match-voice:disabled { cursor: not-allowed !important; opacity: .72 !important; }
 .match-photo { min-height: 130px; display: grid; grid-template-columns: minmax(0,1fr) minmax(220px,.9fr); align-items: center; gap: 12px 24px; margin-top: 16px; padding: 20px 25px; border: 1px solid #edcf87; border-radius: 18px; background: #fffefa; }
 .match-photo-head { display: grid; gap: 4px; margin: 0; }
 .match-photo-title { font-size: 22px; font-weight: 850; }
@@ -1079,9 +1090,8 @@ body[data-page="match"] .page-next { margin-top: 0; margin-bottom: 26px; }
 
 /* 回访页：已有生活档案使用真实动态内容。 */
 body[data-page="stories"] .page-heading { padding-top: 35px; }
-.stories-page-top { min-height: 150px; display: grid; grid-template-columns: 1fr 215px; align-items: center; }
+.stories-page-top { min-height: 250px; display: grid; grid-template-columns: minmax(220px,.78fr) minmax(0,1.22fr); align-items: center; gap: 36px; padding-bottom: 22px; }
 .stories-intro .page-title { margin: 0 0 9px; font-size: clamp(39px, 4.15vw, 57px); }
-.page-illustration-stories { height: 130px; background: url("assets/brand/companions.png") center / contain no-repeat; }
 body[data-page="stories"] .story-section { padding: 0 0 22px; }
 .story-grid { grid-template-columns: 1.25fr .9fr; gap: 0; overflow: hidden; border-radius: 24px; background: var(--pale-yellow); }
 .story-image { min-height: 350px; border-radius: 0; }
@@ -1096,10 +1106,9 @@ body[data-page="stories"] .story-section { padding: 0 0 22px; }
 
 /* 领养页：流程横向展开，申请前的条件保持可扫描。 */
 body[data-page="adoption"] .process-section { padding: 33px 0 25px; background: var(--cream); }
-.adoption-hero { min-height: 230px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(270px, .9fr); align-items: center; gap: 24px; }
+.adoption-hero { min-height: 250px; display: grid; grid-template-columns: minmax(220px,.78fr) minmax(0,1.22fr); align-items: center; gap: 36px; padding-bottom: 22px; }
 .adoption-hero .page-title { margin: 0 0 10px; font-size: clamp(39px, 4.5vw, 62px); }
 .adoption-hero-lede { margin: 0; color: #39352e; font-size: clamp(17px, 1.6vw, 23px); }
-.adoption-hero-art { height: 230px; background: url("assets/brand/adoption-companions.png") center bottom / contain no-repeat; }
 .adoption-process { padding-top: 5px; }
 .adoption-section-title { margin: 0 0 18px; font-size: 27px; }
 .process-list { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 18px; border: 0; }
@@ -1124,8 +1133,8 @@ body[data-page="adoption"] .process-section { padding: 33px 0 25px; background: 
 .adoption-next { padding: 0 0 28px; }
 .adoption-next-inner { min-height: 102px; display: flex; align-items: center; justify-content: space-between; gap: 22px; padding: 18px 25px; border-radius: 18px; background: var(--pale-yellow); }
 .adoption-visit-note { display: flex; align-items: center; gap: 12px; }
-.adoption-visit-icon { width: 48px; height: 48px; flex: none; display: grid; place-items: center; }
-.adoption-visit-icon svg { width: 43px; height: 43px; }
+.adoption-visit-icon { width: 48px; height: 48px; flex: none; display: grid; place-items: center; background: url("assets/brand/decor/S8-house-paw.svg") center / contain no-repeat; }
+.adoption-visit-icon svg { display: none; }
 .adoption-visit-note strong { font-size: 17px; }
 .adoption-visit-note p { max-width: 40ch; margin: 3px 0 0; color: var(--muted); font-size: 12px; }
 .adoption-next-actions { display: flex; align-items: center; gap: 9px; }
@@ -1134,10 +1143,10 @@ body[data-page="adoption"] .process-section { padding: 33px 0 25px; background: 
 
 /* 小院介绍：用户提供的真实团队合影不被生成素材替换。 */
 body[data-page="about"] .about-section { padding: 34px 0 40px; background: var(--cream); }
-.about-intro { min-height: 220px; display: grid; grid-template-columns: minmax(0,1.25fr) minmax(240px,.75fr); align-items: center; gap: 30px; }
+.about-intro { min-height: 250px; display: grid; grid-template-columns: minmax(220px,.78fr) minmax(0,1.22fr); align-items: center; gap: 36px; padding-bottom: 22px; }
 .about-intro .page-title { margin: 0 0 10px; font-size: clamp(39px, 4.5vw, 62px); }
 .about-intro p { max-width: 68ch; margin: 0; color: #3a352e; font-size: 15px; }
-.about-hero-art { height: 205px; background: url("assets/brand/companions.png") center bottom / contain no-repeat; }
+.about-intro-copy::after { content: ""; width: 66px; height: 50px; display: block; margin-top: 7px; background: url("assets/brand/decor/S4-dog-peek.svg") left bottom / contain no-repeat; }
 .about-layout { grid-template-columns: minmax(0,1.8fr) minmax(280px,.83fr); gap: 18px; align-items: stretch; }
 .about-story { min-width: 0; }
 .about-team-photo { margin: 0; }
@@ -1151,6 +1160,7 @@ body[data-page="about"] .about-section { padding: 34px 0 40px; background: var(-
 .about-values p { margin: 2px 0 0; color: var(--muted); font-size: 12px; }
 .contact-card { padding: 28px 32px; border-radius: 18px; background: var(--pale-yellow); color: var(--ink); }
 .contact-icon { margin-bottom: 8px; background: var(--warm-yellow); }
+.adoption-next-inner::after { content: ""; width: 30px; height: 30px; align-self: center; background: url("assets/brand/decor/S5-heart-paw.svg") center / contain no-repeat; }
 .contact-overline { margin-bottom: 1px; color: #6e4b17; font-size: 13px; }
 .contact-card h2 { margin: 0 0 7px; color: var(--ink); font-size: 27px; }
 .contact-description { margin-bottom: 14px; color: #504a40; font-size: 13px; }
@@ -1172,9 +1182,9 @@ body[data-page="about"] .about-section { padding: 34px 0 40px; background: var(-
 .admin-nav-button.active { background: #ffe4a0; color: var(--ink); }
 .admin-nav-icon { width: 26px; height: 26px; flex: none; display: grid; place-items: center; }
 .admin-nav-icon svg { width: 25px; height: 25px; }
-.admin-sidebar-art { width: 190px; height: 170px; margin: auto auto 22px; background: url("assets/brand/adoption-companions.png") center bottom / contain no-repeat; }
 .admin-workspace { min-width: 0; padding: 32px clamp(24px, 3vw, 46px); }
-.admin-page-panel .admin-header { padding: 0; background: transparent; color: var(--ink); }
+.admin-page-panel .admin-header { display: grid; grid-template-columns: minmax(0,1fr) 160px auto; align-items: center; padding: 0; background: transparent; color: var(--ink); }
+.admin-tab-art { display: block; width: 160px; height: 125px; object-fit: contain; }
 .admin-page-panel .admin-header h1 { font-size: clamp(31px, 3.3vw, 46px); color: var(--ink); }
 .admin-lede { margin: 4px 0 0 !important; color: var(--muted) !important; font-size: 14px !important; font-weight: 400 !important; letter-spacing: 0 !important; }
 .admin-return { align-self: start; min-height: 42px; padding: 9px 15px; border-radius: 99px; background: #f9f5eb; color: var(--ink); }
@@ -1206,16 +1216,16 @@ body[data-page="about"] .about-section { padding: 34px 0 40px; background: var(-
   .hero-copy h1 { max-width: 16ch; }
   .home-photo-scene { width: min(680px,100%); }
   .home-featured-layout { gap: 22px; }
-  .pets-page-top, .match-intro, .adoption-hero, .about-intro { grid-template-columns: 1fr 210px; }
+  .pets-page-top, .match-intro, .adoption-hero, .about-intro, .stories-page-top { grid-template-columns: minmax(180px,.7fr) minmax(0,1.3fr); gap: 20px; }
   .process-list, .adoption-requirements { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 20px; }
   .adoption-requirements li:nth-child(2) { border: 0; }
-  .stories-page-top { grid-template-columns: 1fr 160px; }
   .story-image { min-height: 390px; }
   .admin-page-panel .admin-layout { grid-template-columns: minmax(0,1fr); }
   .admin-sidebar { border-right: 0; border-bottom: 1px solid #f0e5ce; }
   .admin-nav { display: flex; overflow-x: auto; gap: 5px; padding: 12px 20px; white-space: nowrap; }
   .admin-nav-button { width: auto; flex: 0 0 auto; min-height: 48px; padding: 7px 12px; font-size: 14px; }
-  .admin-sidebar-art { display: none; }
+  .admin-page-panel .admin-header { grid-template-columns: minmax(0,1fr) 130px auto; }
+  .admin-tab-art { width: 130px; height: 100px; }
   .admin-workspace { padding: 25px 22px; }
 }
 
@@ -1253,8 +1263,8 @@ body[data-page="about"] .about-section { padding: 34px 0 40px; background: var(-
   .home-featured-layout .feature-note { width: min(250px,72%); padding: 15px; }
   .intro-grid { gap: 20px; }
   .intro-stats { grid-template-columns: repeat(3,1fr); }
-  .pets-page-top, .match-intro, .adoption-hero, .about-intro, .stories-page-top { min-height: 0; grid-template-columns: 1fr; gap: 10px; }
-  .page-illustration-pets, .match-intro-art, .adoption-hero-art, .about-hero-art, .page-illustration-stories { display: none; }
+  .pets-page-top, .match-intro, .adoption-hero, .about-intro, .stories-page-top { min-height: 0; grid-template-columns: 1fr; gap: 16px; }
+  .page-hero-photo img { height: 180px; }
   .pets-intro .page-title, .match-intro .page-title, .adoption-hero .page-title, .about-intro .page-title, .stories-intro .page-title { font-size: clamp(31px, 8vw, 42px); }
   .pets-intro p, .match-intro p, .adoption-hero-lede, .stories-intro p { font-size: 16px; }
   body[data-page="pets"] .pets-section, body[data-page="match"] .match-section, body[data-page="adoption"] .process-section, body[data-page="about"] .about-section { padding-top: 27px; }
@@ -1296,7 +1306,9 @@ body[data-page="about"] .about-section { padding: 34px 0 40px; background: var(-
   .story-copy { padding: 23px; }
   .stories-archive-head { align-items: start; }
   .admin-workspace { width: 100%; padding: 20px 14px; }
-  .admin-page-panel .admin-header { align-items: start; flex-direction: column; gap: 7px; }
+  .admin-page-panel .admin-header { grid-template-columns: 1fr 95px; align-items: start; gap: 7px; }
+  .admin-tab-art { grid-column: 2; grid-row: 1; width: 95px; height: 75px; }
+  .admin-return { grid-column: 1 / -1; }
   .admin-page-panel .admin-header h1 { font-size: 25px; }
   .admin-lede { font-size: 12px !important; }
   .admin-return { flex: none; padding: 7px 10px; font-size: 11px; }
