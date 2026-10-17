@@ -175,7 +175,7 @@ check(
 );
 const adminArt = byId(admin, 'adminTabArt');
 check('admin: tab illustration is present', adminArt?.name === 'img');
-for (const asset of ['admin-play-and-stretch.png', 'admin-cushion-peek.png', 'admin-walk-together.png', 'companions.png']) {
+for (const asset of ['admin-play-and-stretch.png', 'admin-cushion-peek.png', 'admin-walk-together.png', 'admin-settings-companions.png']) {
   check(`admin: ${asset} is mapped to a tab`, app.includes(`assets/brand/${asset}`) && fs.existsSync(path.join(root, 'assets/brand', asset)));
 }
 

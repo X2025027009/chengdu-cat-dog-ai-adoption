@@ -1102,7 +1102,7 @@ function renderAdmin() {
       overview: 'assets/brand/admin-play-and-stretch.png',
       pets: 'assets/brand/admin-cushion-peek.png',
       applications: 'assets/brand/admin-walk-together.png',
-      settings: 'assets/brand/companions.png'
+      settings: 'assets/brand/admin-settings-companions.png'
     };
     art.src = artwork[adminTab];
   }
