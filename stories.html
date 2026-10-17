@@ -7,15 +7,16 @@
     <title>回访档案 · 成都猫狗小院</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Noto+Sans+SC:wght@400;500;600;700&family=Noto+Serif+SC:wght@600;700&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="styles.css" />
+    <link rel="icon" type="image/svg+xml" href="assets/brand/friends-mark.svg" />
   </head>
   <body data-page="stories">
     <!-- THESIS: One task, one real URL; the homepage welcomes, dedicated pages let visitors act.
-       OWN-WORLD: Preserve cream, warm yellow, ink, Noto Serif SC and the courtyard's pet photography.
+       OWN-WORLD: Cream, warm yellow, rounded sans lettering, genuine courtyard photos and separate decorative art.
        STORY: Meet a pet, understand the fit and process, apply with care, then follow its new life; administration stays separate.
        FIRST VIEWPORT: Home retains copy-left/photo-right; task pages put title and primary tool first, with active navigation.
-       FORM: Precise extension of the existing buildless site, no concept roll; code-led multipage refinement.
+       FORM: Preview-led visual refresh of the existing buildless multipage site.
        FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, DESIGN.md, and every shipping raster carrying its provenance -->
     <a class="skip-link" href="#main">跳到主要内容</a>
 
@@ -56,17 +57,20 @@
     </div>
     <main id="main">
       <div class="container" id="applicantNotice" hidden></div>
-      <section class="page-heading container">
-        <h1 class="page-title">回家的故事，还在继续。</h1>
-        <p>这里保留已领养伙伴的档案与回访。离开小院之后，它们的生活依然值得被认真记录。</p>
+      <section class="page-heading stories-page-top container">
+        <div class="stories-intro">
+          <h1 class="page-title">回家的故事，还在继续。</h1>
+          <p>已领养伙伴的档案与回访，让新生活被认真记录。</p>
+        </div>
+        <div class="page-illustration page-illustration-stories" aria-hidden="true"></div>
       </section>
       <section class="section story-section" id="stories">
         <div class="container story-grid">
           <div class="story-image">
             <img id="storyFeatureImage" src="https://images.unsplash.com/photo-1535268647677-300dbf3d78d1?auto=format&fit=crop&w=1100&q=90" alt="元宝，已领养生活档案照片" />
-            <div class="story-label" id="storyFeatureLabel">已领养档案 · 持续更新</div>
           </div>
           <div class="story-copy">
+            <div class="story-label" id="storyFeatureLabel">已领养档案 · 持续更新</div>
             <h2 id="storyFeatureHeading">元宝有了新窗台，<br />也有了自己的名字。</h2>
             <p id="storyFeatureDescription">已经被领养的小动物仍会留在小院的公开档案里。新的生活照片、视频和回访片段，会慢慢补进来，让每一次“已经找到家”都被真实地看见。</p>
             <button class="button button-primary" id="storyFeatureButton" data-open-pet="yuanbao">查看元宝的生活档案 <span aria-hidden="true">→</span></button>
@@ -75,9 +79,12 @@
       </section>
       <section class="section stories-archive">
         <div class="container">
-          <div class="section-heading">
-            <h2>已找到家的伙伴</h2>
-            <p>打开档案，查看它们的回访记录与近况。</p>
+          <div class="section-heading stories-archive-head">
+            <div>
+              <h2>已找到家的伙伴</h2>
+              <p>打开档案，查看它们的回访记录与近况。</p>
+            </div>
+            <a class="text-link" href="pets.html">浏览更多伙伴<span aria-hidden="true">→</span></a>
           </div>
           <div class="pet-grid" id="storiesGrid" aria-live="polite"></div>
           <div class="empty-state hidden" id="storiesEmpty">

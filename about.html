@@ -7,15 +7,16 @@
     <title>关于小院 · 成都猫狗小院</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Noto+Sans+SC:wght@400;500;600;700&family=Noto+Serif+SC:wght@600;700&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="styles.css" />
+    <link rel="icon" type="image/svg+xml" href="assets/brand/friends-mark.svg" />
   </head>
   <body data-page="about">
     <!-- THESIS: One task, one real URL; the homepage welcomes, dedicated pages let visitors act.
-       OWN-WORLD: Preserve cream, warm yellow, ink, Noto Serif SC and the courtyard's pet photography.
+       OWN-WORLD: Cream, warm yellow, rounded sans lettering, genuine courtyard photos and separate decorative art.
        STORY: Meet a pet, understand the fit and process, apply with care, then follow its new life; administration stays separate.
        FIRST VIEWPORT: Home retains copy-left/photo-right; task pages put title and primary tool first, with active navigation.
-       FORM: Precise extension of the existing buildless site, no concept roll; code-led multipage refinement.
+       FORM: Preview-led visual refresh of the existing buildless multipage site.
        FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, DESIGN.md, and every shipping raster carrying its provenance -->
     <a class="skip-link" href="#main">跳到主要内容</a>
 
@@ -57,13 +58,58 @@
     <main id="main">
       <div class="container" id="applicantNotice" hidden></div>
       <section class="section about-section" id="about">
-        <div class="container about-layout">
-          <div class="about-card">
+        <div class="container about-intro">
+          <div class="about-intro-copy">
             <h1 class="page-title">一个暂时的院子，<br />一条回家的路。</h1>
             <p>我们是成都本地的私人流浪猫狗救助小院。这里不承诺替代专业机构，但会尽力为每一个来到院子里的生命，提供食物、医疗、安静的休息处，以及被好好介绍给新家庭的机会。</p>
-            <figure class="about-photo">
-              <img src="assets/team-photo.jpg" alt="成都猫狗小院的合影：大家和院里的狗一起举着横幅，横幅上写着「反对虐杀动物 支持动保立法」「每个生命都值得被尊重」" loading="lazy" />
+          </div>
+          <div class="about-hero-art" aria-hidden="true"></div>
+        </div>
+        <div class="container about-layout">
+          <div class="about-story">
+            <figure class="about-team-photo">
+              <img src="assets/team-photo.jpg" alt="成都猫狗小院的合影：大家和院里的狗一起举着横幅，横幅上写着「反对虐杀动物 支持动保立法」「每个生命都值得被尊重」" />
+              <figcaption>小院里的我们</figcaption>
             </figure>
+            <ul class="about-values">
+              <li>
+                <span class="about-value-icon" aria-hidden="true"
+                  ><svg viewBox="0 0 48 48" fill="none">
+                    <path d="M24 39C13 31 7 26 7 18a8 8 0 0 1 15-4l2 3 2-3a8 8 0 0 1 15 4c0 8-6 13-17 21Z" stroke="currentColor" stroke-width="2.5" stroke-linejoin="round" /></svg
+                ></span>
+                <div>
+                  <strong>认真救助</strong>
+                  <p>为流浪猫狗提供必要的照料与医疗帮助。</p>
+                </div>
+              </li>
+              <li>
+                <span class="about-value-icon" aria-hidden="true"
+                  ><svg viewBox="0 0 48 48" fill="none">
+                    <path d="m7 22 17-14 17 14v18H7V22Z" stroke="currentColor" stroke-width="2.5" stroke-linejoin="round" />
+                    <path d="M19 40V27h10v13" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" /></svg
+                ></span>
+                <div>
+                  <strong>负责领养</strong>
+                  <p>为合适的它们寻找愿意长期陪伴的家。</p>
+                </div>
+              </li>
+              <li>
+                <span class="about-value-icon" aria-hidden="true"
+                  ><svg viewBox="0 0 48 48" fill="none">
+                    <path
+                      d="M24 41V23M24 32c-8 0-14-6-14-14 8 0 14 6 14 14ZM24 26c0-8 6-14 14-14 0 8-6 14-14 14Z"
+                      stroke="currentColor"
+                      stroke-width="2.5"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    /></svg
+                ></span>
+                <div>
+                  <strong>持续回访</strong>
+                  <p>在它们到家后继续保持联系，关注新生活。</p>
+                </div>
+              </li>
+            </ul>
           </div>
           <aside class="contact-card" id="contactCard">
             <div class="contact-icon" aria-hidden="true">
@@ -77,7 +123,8 @@
               </svg>
             </div>
             <p class="contact-overline">想先聊一聊？</p>
-            <h3>联系方式由小院管理员随时更新</h3>
+            <h2>欢迎先与小院联系</h2>
+            <p class="contact-description">领养、探访或了解小院，可以先从咨询开始。具体方式由管理员更新。</p>
             <dl class="contact-list" id="contactList"></dl>
             <button class="button button-dark" id="contactButton">查看咨询方式</button>
           </aside>

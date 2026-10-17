@@ -483,13 +483,13 @@ function renderFeaturedLoadingState() {
   const storyHeading = $('#storyFeatureHeading');
   const storyDescription = $('#storyFeatureDescription');
   const storyButton = $('#storyFeatureButton');
-  if (heroImage) { heroImage.removeAttribute('src'); heroImage.alt = '正在读取最新宠物档案'; }
+  if (heroImage) { heroImage.src = 'assets/brand/companions.png'; heroImage.alt = '正在读取最新宠物档案'; }
   if (heroStamp) heroStamp.textContent = '正在读取';
   if (heroStatus) heroStatus.textContent = '正在读取';
   if (heroName) heroName.textContent = '正在读取最新档案';
   if (heroDescription) heroDescription.textContent = '正在从小院云端更新宠物资料和影像。';
   if (heroButton) heroButton.hidden = true;
-  if (storyImage) { storyImage.removeAttribute('src'); storyImage.alt = '正在读取已领养生活档案'; }
+  if (storyImage) { storyImage.src = 'assets/brand/companions.png'; storyImage.alt = '正在读取已领养生活档案'; }
   if (storyLabel) storyLabel.textContent = '回访档案 · 正在读取';
   if (storyHeading) storyHeading.innerHTML = '正在读取新的生活档案。';
   if (storyDescription) storyDescription.textContent = '云端资料加载完成后，会在这里显示最新回访。';
@@ -635,6 +635,22 @@ function renderPets() {
   grid.setAttribute('aria-busy', 'false');
   grid.innerHTML = matchingPets.map(petCardMarkup).join('');
   empty.classList.toggle('hidden', matchingPets.length > 0);
+}
+
+function renderHomePets() {
+  const grid = $('#homePetsGrid');
+  const empty = $('#homePetsEmpty');
+  if (!grid || !empty) return;
+  if (publicDataSource === 'loading') {
+    grid.setAttribute('aria-busy', 'true');
+    grid.innerHTML = '<div class="pet-loading" role="status"><strong>正在读取最新档案</strong><span>小院的伙伴很快就会出现在这里。</span></div>';
+    empty.classList.add('hidden');
+    return;
+  }
+  const waitingPets = pets.filter(pet => pet.status === '待领养').slice(0, 3);
+  grid.setAttribute('aria-busy', 'false');
+  grid.innerHTML = waitingPets.map(petCardMarkup).join('');
+  empty.classList.toggle('hidden', waitingPets.length > 0);
 }
 
 function petCardMarkup(pet) {
@@ -1296,9 +1312,11 @@ function renderAdminApplications() {
       </form>
     </article>`;
   }).join('');
-  const stateNotice = Array.isArray(cloudApplications)
-    ? '这里显示的是云端申请资料；修改状态或内部备注后会同步到云端。'
-    : '暂时未能读取云端申请资料；当前显示本浏览器中的申请记录。';
+  const stateNotice = window.YARD_LOCAL_REVIEW
+    ? '本地审核预览：只显示本浏览器中的示例与草稿，不连接云端。'
+    : Array.isArray(cloudApplications)
+      ? '这里显示的是云端申请资料；修改状态或内部备注后会同步到云端。'
+      : '暂时未能读取云端申请资料；当前显示本浏览器中的申请记录。';
   return `${adminPageHead('申请记录', stateNotice)}
     <div class="application-list">${rows || '<div class="admin-empty">还没有申请记录。访客提交表单后会出现在这里。</div>'}</div>`;
 }
@@ -2045,7 +2063,7 @@ async function handlePetSave(event) {
 }
 function renderAll() {
   document.body.classList.toggle('public-data-loading', publicDataSource === 'loading');
-  renderFeaturedPetCards(); renderStats(); renderContact(); renderPets(); renderStories();
+  renderFeaturedPetCards(); renderStats(); renderContact(); renderPets(); renderHomePets(); renderStories();
 }
 
 function setFilter(group, value) {

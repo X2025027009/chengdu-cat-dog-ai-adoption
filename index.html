@@ -7,15 +7,16 @@
   <title>成都猫狗小院 · 领养代替购买</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Noto+Sans+SC:wght@400;500;600;700&family=Noto+Serif+SC:wght@600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="styles.css" />
+  <link rel="icon" type="image/svg+xml" href="assets/brand/friends-mark.svg" />
 </head>
 <body data-page="home">
   <!-- THESIS: One task, one real URL; the homepage welcomes, dedicated pages let visitors act.
-       OWN-WORLD: Preserve cream, warm yellow, ink, Noto Serif SC and the courtyard's pet photography.
+       OWN-WORLD: Cream, warm yellow, rounded sans lettering, genuine courtyard photos and separate decorative art.
        STORY: Meet a pet, understand the fit and process, apply with care, then follow its new life; administration stays separate.
        FIRST VIEWPORT: Home retains copy-left/photo-right; task pages put title and primary tool first, with active navigation.
-       FORM: Precise extension of the existing buildless site, no concept roll; code-led multipage refinement.
+       FORM: Preview-led visual refresh of the existing buildless multipage site.
        FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, DESIGN.md, and every shipping raster carrying its provenance -->
   <a class="skip-link" href="#main">跳到主要内容</a>
 
@@ -51,29 +52,37 @@
     <section class="hero">
       <div class="container hero-grid">
         <div class="hero-copy reveal">
-          <p class="hand-note">在成都，给它一个回家的理由</p>
           <h1>每一只小动物，<br />都值得被认真看见。</h1>
-          <p class="hero-lede">成都猫狗小院为流浪猫狗提供临时的安全角落，也为愿意负责的你，留下一条认识它们的路。</p>
+          <p class="hero-lede">在成都，陪它们等一个认真负责的家。</p>
           <div class="hero-actions">
-            <a class="button button-primary" href="pets.html">看看正在等家的它们 <span aria-hidden="true">→</span></a>
-            <a class="button button-ghost" href="adoption.html">先了解领养流程</a>
+            <a class="button button-primary" href="pets.html">寻找伙伴</a>
+            <a class="button button-ghost" href="adoption.html">了解领养流程 <span aria-hidden="true">→</span></a>
           </div>
-          <p class="hero-caption">照片和档案会持续更新。请先认识它，再决定带它回家。</p>
         </div>
+        <div class="home-photo-scene reveal reveal-delay">
+          <div class="home-photo-frame">
+            <img id="homeGroupPhoto" src="assets/dogs-group-original.jpg" alt="小院的五只狗狗在院子里合影" fetchpriority="high" />
+          </div>
+        </div>
+      </div>
+    </section>
 
-        <div class="hero-feature reveal reveal-delay">
-          <div class="hero-photo-wrap">
-            <img id="heroFeatureImage" src="https://images.unsplash.com/photo-1518791841217-8f162f1e1131?auto=format&fit=crop&w=1100&q=90" alt="小麦，猫咪照片" />
-            <span class="photo-stamp" id="heroFeatureStamp">正在等家</span>
-          </div>
-          <article class="feature-note">
-            <div class="note-topline"><span id="heroFeatureStatus">正在等家</span><span class="status-dot"></span></div>
-            <h2 id="heroFeatureName">小麦 · 约 2 岁</h2>
-            <p id="heroFeatureDescription">很会观察，也愿意慢慢靠近。熟悉之后喜欢靠在人的身边打盹。</p>
-            <button class="text-link" id="heroFeatureButton" data-open-pet="xiaomai">认识小麦 <span aria-hidden="true">↗</span></button>
-          </article>
-          <span class="hero-sun" aria-hidden="true"></span>
+    <section class="home-waiting section" aria-labelledby="homeWaitingTitle">
+      <div class="container">
+        <div class="home-waiting-head">
+          <h2 id="homeWaitingTitle">正在等家的它们</h2>
+          <a class="text-link" href="pets.html">查看全部 <span aria-hidden="true">→</span></a>
         </div>
+        <div class="pet-grid home-pet-grid" id="homePetsGrid" aria-live="polite"></div>
+        <div class="empty-state hidden" id="homePetsEmpty"><strong>这里还没有开放领养的档案</strong><p>可以稍后回来，或先了解小院的领养流程。</p></div>
+      </div>
+    </section>
+
+    <section class="home-match-banner" aria-labelledby="homeMatchTitle">
+      <div class="container home-match-inner">
+        <img src="assets/brand/companions.png" alt="" aria-hidden="true" loading="lazy" />
+        <div><h2 id="homeMatchTitle">不知道选哪一位？</h2><p>聊聊你的生活，找到适合的伙伴。</p></div>
+        <a class="button button-primary" href="match.html">开始匹配</a>
       </div>
     </section>
 
@@ -81,6 +90,24 @@
       <div class="container intro-grid">
         <p>这里不是宠物商品目录。每一份档案，都记录着一段正在发生的陪伴。</p>
         <div class="intro-stats" id="stats" aria-live="polite"></div>
+      </div>
+    </section>
+
+    <section class="home-featured-section section" aria-label="今日伙伴档案">
+      <div class="container home-featured-layout">
+        <div class="home-featured-copy"><h2>从一个真实的故事，<br />开始认识它。</h2><p>等待中的伙伴会在这里轮流出现。每份档案都有性格、健康与日常习惯的记录。</p></div>
+        <div class="hero-feature">
+          <div class="hero-photo-wrap">
+            <img id="heroFeatureImage" src="assets/brand/companions.png" alt="正在读取最新宠物档案" />
+            <span class="photo-stamp" id="heroFeatureStamp">正在读取</span>
+          </div>
+          <article class="feature-note">
+            <div class="note-topline"><span id="heroFeatureStatus">正在读取</span><span class="status-dot"></span></div>
+            <h3 id="heroFeatureName">正在读取最新档案</h3>
+            <p id="heroFeatureDescription">正在更新宠物资料与影像。</p>
+            <button class="text-link" id="heroFeatureButton" hidden>查看档案 <span aria-hidden="true">↗</span></button>
+          </article>
+        </div>
       </div>
     </section>
 

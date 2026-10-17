@@ -7,15 +7,16 @@
     <title>寻找伙伴 · 成都猫狗小院</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Noto+Sans+SC:wght@400;500;600;700&family=Noto+Serif+SC:wght@600;700&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="styles.css" />
+    <link rel="icon" type="image/svg+xml" href="assets/brand/friends-mark.svg" />
   </head>
   <body data-page="pets">
     <!-- THESIS: One task, one real URL; the homepage welcomes, dedicated pages let visitors act.
-       OWN-WORLD: Preserve cream, warm yellow, ink, Noto Serif SC and the courtyard's pet photography.
+       OWN-WORLD: Cream, warm yellow, rounded sans lettering, genuine courtyard photos and separate decorative art.
        STORY: Meet a pet, understand the fit and process, apply with care, then follow its new life; administration stays separate.
        FIRST VIEWPORT: Home retains copy-left/photo-right; task pages put title and primary tool first, with active navigation.
-       FORM: Precise extension of the existing buildless site, no concept roll; code-led multipage refinement.
+       FORM: Preview-led visual refresh of the existing buildless multipage site.
        FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, DESIGN.md, and every shipping raster carrying its provenance -->
     <a class="skip-link" href="#main">跳到主要内容</a>
 
@@ -58,14 +59,15 @@
       <div class="container" id="applicantNotice" hidden></div>
       <section class="section pets-section" id="pets">
         <div class="container">
-          <div class="section-heading split-heading">
-            <div>
+          <div class="pets-page-top">
+            <div class="section-heading pets-intro">
               <h1 class="page-title">小院里的等待</h1>
+              <p>合适的领养，从不急着决定开始。</p>
             </div>
-            <p>你可以先按种类和状态筛选。合适的领养，从不急着决定开始。</p>
+            <div class="page-illustration page-illustration-pets" aria-hidden="true"></div>
           </div>
 
-          <div class="filters" role="toolbar" aria-label="筛选宠物">
+          <div class="filters pets-filter-stack" role="toolbar" aria-label="筛选宠物">
             <div class="filter-group" aria-label="按状态筛选">
               <button class="filter-button active" data-filter="status" data-value="待领养" aria-pressed="true">待领养</button>
               <button class="filter-button" data-filter="status" data-value="已领养" aria-pressed="false">已领养档案</button>
@@ -85,9 +87,13 @@
           </div>
         </div>
       </section>
-      <aside class="page-next container" aria-label="下一步">
-        <p>还不确定哪一只适合你的生活？</p>
-        <a class="text-link" href="match.html">和 AI 匹配助手聊聊<span aria-hidden="true">→</span></a>
+      <aside class="page-next pets-ai-cta container" aria-label="下一步">
+        <div class="cta-illustration" aria-hidden="true"></div>
+        <div class="cta-copy">
+          <h2>还不确定哪一只适合你的生活？</h2>
+          <p>可以和 AI 匹配助手聊聊，找到更合适的伙伴。</p>
+        </div>
+        <a class="button button-primary" href="match.html">和 AI 匹配助手聊聊<span aria-hidden="true">→</span></a>
       </aside>
     </main>
 

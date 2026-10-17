@@ -7,15 +7,16 @@
     <title>AI 领养匹配 · 成都猫狗小院</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Noto+Sans+SC:wght@400;500;600;700&family=Noto+Serif+SC:wght@600;700&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="styles.css" />
+    <link rel="icon" type="image/svg+xml" href="assets/brand/friends-mark.svg" />
   </head>
   <body data-page="match">
     <!-- THESIS: One task, one real URL; the homepage welcomes, dedicated pages let visitors act.
-       OWN-WORLD: Preserve cream, warm yellow, ink, Noto Serif SC and the courtyard's pet photography.
+       OWN-WORLD: Cream, warm yellow, rounded sans lettering, genuine courtyard photos and separate decorative art.
        STORY: Meet a pet, understand the fit and process, apply with care, then follow its new life; administration stays separate.
        FIRST VIEWPORT: Home retains copy-left/photo-right; task pages put title and primary tool first, with active navigation.
-       FORM: Precise extension of the existing buildless site, no concept roll; code-led multipage refinement.
+       FORM: Preview-led visual refresh of the existing buildless multipage site.
        FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, DESIGN.md, and every shipping raster carrying its provenance -->
     <a class="skip-link" href="#main">跳到主要内容</a>
 
@@ -58,14 +59,19 @@
       <div class="container" id="applicantNotice" hidden></div>
       <section class="section match-section" id="match">
         <div class="container">
-          <div class="section-heading split-heading">
+          <div class="match-intro">
             <div>
-              <h1 class="page-title">先聊一聊，<br />再决定申请谁</h1>
+              <h1 class="page-title">先聊一聊，再决定申请谁</h1>
+              <p>说说你的生活，找到适合的伙伴。</p>
             </div>
-            <p>说说你的居住情况、平时在不在家、家里人的想法。AI 会结合小院的在册档案给出建议，也会提醒你容易忽略的地方。</p>
+            <div class="match-intro-art" aria-hidden="true"></div>
           </div>
 
           <div class="match-panel">
+            <div class="match-panel-heading">
+              <span class="match-assistant-icon" aria-hidden="true"></span>
+              <h2>小院 AI 匹配助手</h2>
+            </div>
             <div class="match-thread" id="matchThread" aria-live="polite" aria-label="AI 领养匹配对话"></div>
 
             <form class="match-form" id="matchForm">
@@ -74,30 +80,31 @@
               <div class="match-actions">
                 <button class="button button-primary" type="submit" id="matchSubmit">开始匹配</button>
                 <button class="button button-ghost match-voice" type="button" id="matchVoice" hidden aria-pressed="false">
-                  <span class="match-voice-icon" aria-hidden="true">🎤</span><span id="matchVoiceText">语音输入</span>
+                  <svg class="match-voice-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <rect x="9" y="3" width="6" height="12" rx="3" stroke="currentColor" stroke-width="1.8" />
+                    <path d="M6 11a6 6 0 0 0 12 0M12 17v4m-4 0h8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" /></svg
+                  ><span id="matchVoiceText">语音输入</span>
                 </button>
                 <button class="button button-ghost" type="button" id="matchReset" hidden>重新开始</button>
               </div>
             </form>
 
-            <div class="match-photo">
-              <div class="match-photo-head">
-                <span class="match-photo-title">或者，用一张照片来找</span>
-                <span class="match-photo-note">照片只在你的浏览器里压缩后发去比对，不会保存到任何地方</span>
-              </div>
-              <div class="match-photo-actions">
-                <label class="button button-ghost match-photo-pick">
-                  <input id="matchPhotoFile" type="file" accept="image/jpeg,image/png,image/webp" hidden />
-                  <span id="matchPhotoLabel">选择一张照片</span>
-                </label>
-              </div>
-              <div id="matchPhotoResult" class="match-photo-result" hidden></div>
-            </div>
-
             <p class="match-mode-hint" id="matchModeHint" hidden></p>
-
-            <p class="match-disclaimer">AI 建议仅供参考，最终由小院与你沟通后决定。 请不要在这里填写身份证号、家庭住址等敏感信息。</p>
           </div>
+          <div class="match-photo">
+            <div class="match-photo-head">
+              <span class="match-photo-title">或者，用一张照片来找</span>
+              <span class="match-photo-note">照片会发送给图像比对服务处理，请勿上传含私人信息的照片。</span>
+            </div>
+            <div class="match-photo-actions">
+              <label class="button button-ghost match-photo-pick">
+                <input id="matchPhotoFile" class="match-photo-input" type="file" accept="image/jpeg,image/png,image/webp" />
+                <span id="matchPhotoLabel">选择一张照片</span>
+              </label>
+            </div>
+            <div id="matchPhotoResult" class="match-photo-result" hidden></div>
+          </div>
+          <p class="match-disclaimer">AI 建议仅供参考，最终由小院与你沟通后决定。请不要在这里填写身份证号、家庭住址等敏感信息。</p>
         </div>
       </section>
       <aside class="page-next container" aria-label="下一步">
