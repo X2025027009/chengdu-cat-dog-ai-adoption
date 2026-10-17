@@ -1319,3 +1319,44 @@ body[data-page="about"] .about-section { padding: 34px 0 40px; background: var(-
   .dashboard-stats { grid-template-columns: repeat(2,1fr); }
 }
 
+/* 仅在「寻找伙伴」页试行：照片是档案封面，详情抽屉覆盖其下沿。 */
+.pet-drawer-backdrop { background: rgba(30, 29, 26, .7); backdrop-filter: none; }
+.pet-drawer-backdrop .modal { width: min(760px, 100%); max-height: calc(100dvh - 36px); overflow-x: hidden; overscroll-behavior: contain; border-radius: 24px; background: transparent; box-shadow: 0 28px 75px rgba(0, 0, 0, .28); }
+.pet-photo-drawer { display: block; min-height: 0; }
+.pet-photo-drawer .modal-image { display: block; height: clamp(320px, 48vh, 460px); min-height: 0; overflow: hidden; border-radius: 24px 24px 0 0; }
+.pet-photo-drawer .pet-gallery { height: 100%; }
+.pet-photo-drawer .gallery-thumbs { padding-bottom: 42px; border-top: 0; background: #fff7e8; }
+.pet-photo-drawer .modal-image .status-pill { z-index: 4; top: 18px; left: 18px; }
+.pet-photo-drawer .modal-image .modal-close { position: absolute; z-index: 5; top: 15px; right: 15px; border: 0; background: var(--surface); }
+.pet-photo-drawer .modal-image .modal-close:focus-visible { outline: 3px solid var(--warm-yellow); outline-offset: 3px; }
+.pet-photo-drawer .modal-main { z-index: 2; margin-top: -34px; padding: 29px 38px 38px; border-radius: 26px 26px 24px 24px; background: var(--surface); }
+.pet-photo-drawer .pet-drawer-context { margin: 0 0 14px; color: #675b44; font-size: 13px; }
+.pet-photo-drawer .modal-main h2 { margin: 0 0 12px; font-size: clamp(36px, 4vw, 51px); line-height: 1.1; }
+.pet-photo-drawer .modal-description { max-width: 58ch; margin: 0; color: var(--ink); font-size: 16px; line-height: 1.7; }
+.pet-photo-drawer .fact-list { gap: 12px 20px; margin: 22px 0 10px; padding: 17px 20px; border-radius: 18px; background: #fff4d8; }
+.pet-photo-drawer .fact-list div { padding: 0; border: 0; }
+.pet-photo-drawer .fact-list dt, .pet-photo-drawer .detail-block h3 { font-size: 13px; }
+.pet-photo-drawer .fact-list dd, .pet-photo-drawer .detail-block p { color: var(--ink); font-size: 14px; }
+.pet-photo-drawer .detail-block { padding: 17px 0 0; border: 0; }
+.pet-photo-drawer .archive-updates li { padding: 6px 0; border: 0; }
+.pet-photo-drawer .modal-actions { margin-top: 20px; }
+
+@media (max-width: 680px) {
+  .pet-drawer-backdrop { padding: 0; }
+  .pet-drawer-backdrop .modal { width: 100%; max-height: calc(100dvh - 8px); border-radius: 24px 24px 0 0; }
+  .pet-photo-drawer .modal-image { height: clamp(290px, 46dvh, 430px); border-radius: 24px 24px 0 0; }
+  .pet-photo-drawer .modal-main { padding: 24px 23px max(30px, env(safe-area-inset-bottom)); border-radius: 25px 25px 0 0; }
+  .pet-photo-drawer .modal-main h2 { font-size: 40px; }
+  .pet-photo-drawer .gallery-thumbs { padding-bottom: 42px; }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .pet-drawer-backdrop:not(.hidden) { animation: pet-drawer-scrim 220ms ease-out both; }
+  .pet-drawer-backdrop:not(.hidden) .pet-photo-drawer .modal-image { animation: pet-photo-pop 380ms cubic-bezier(.22, 1, .36, 1) both; }
+  .pet-drawer-backdrop:not(.hidden) .pet-photo-drawer .modal-main { animation: pet-info-rise 440ms cubic-bezier(.22, 1, .36, 1) 170ms both; }
+}
+
+@keyframes pet-drawer-scrim { from { opacity: 0; } to { opacity: 1; } }
+@keyframes pet-photo-pop { from { opacity: 0; transform: translateY(12px) scale(.94); } to { opacity: 1; transform: none; } }
+@keyframes pet-info-rise { from { opacity: 0; transform: translateY(72px); } to { opacity: 1; transform: none; } }
+

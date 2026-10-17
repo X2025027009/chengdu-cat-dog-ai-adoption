@@ -138,6 +138,14 @@ for (const [filter, values] of Object.entries({ status: ['待领养', '已领养
   );
 }
 check('pets: dynamic grid announces updates', byId(pets, 'petGrid')?.attrs['aria-live'] === 'polite');
+const app = fs.readFileSync(path.join(root, 'app.js'), 'utf8');
+check('pets: photo drawer only opens on the pets page', app.includes("const photoDrawer = SITE_PAGE === 'pets'") && app.includes("photoDrawer ? 'pet-drawer' : ''"));
+check('pets: detail drawer preserves focus and clears its backdrop class', app.includes("backdrop?.classList.remove('pet-drawer-backdrop')") && app.includes("event.key === 'Tab' && petDrawer"));
+check('pets: photograph and details have separate entrance motions', css.includes('pet-photo-pop 380ms') && css.includes('pet-info-rise 440ms') && css.includes('170ms both'));
+check(
+  'pets: drawer travel is skipped for reduced motion',
+  css.includes('@media (prefers-reduced-motion: no-preference)') && css.includes('.pet-drawer-backdrop:not(.hidden) .pet-photo-drawer .modal-main')
+);
 
 const match = parsed['match.html'];
 check('match: conversation announces updates', byId(match, 'matchThread')?.attrs['aria-live'] === 'polite');
@@ -149,7 +157,6 @@ check('match: photo picker remains a file input', byId(match, 'matchPhotoFile')?
 check('match: photo picker remains keyboard focusable', !Object.hasOwn(byId(match, 'matchPhotoFile')?.attrs ?? {}, 'hidden'));
 check('match: photo handling copy does not promise unverified retention', !files['match.html'].includes('照片只用于本次比对，不会保存'));
 check('match: voice entry is visible before scripting', !Object.hasOwn(byId(match, 'matchVoice')?.attrs ?? {}, 'hidden'));
-const app = fs.readFileSync(path.join(root, 'app.js'), 'utf8');
 check('match: local review disables rather than hides browser speech', app.includes('button.disabled = Boolean(unavailableReason)') && !app.includes('button.hidden = true'));
 
 const adoption = parsed['adoption.html'];
