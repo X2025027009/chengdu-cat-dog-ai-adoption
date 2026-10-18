@@ -58,7 +58,8 @@ function element(initialClasses = []) {
 
 function fixture(page, href) {
   let currentUrl = new URL(href);
-  const calls = { fetch: 0, sdk: 0, script: 0, rotation: 0, navigations: [] };
+  const calls = { fetch: 0, sdk: 0, script: 0, rotation: 0, navigations: [], feedback: [] };
+  const listeners = new Map();
   const hosts = new Map();
   const localNotice = element();
   localNotice.hidden = true;
@@ -122,7 +123,10 @@ function fixture(page, href) {
     querySelector: selector => hosts.get(selector) || null,
     querySelectorAll: () => [],
     getElementById: id => hosts.get(`#${id}`) || null,
-    addEventListener() {},
+    addEventListener(type, handler) {
+      if (!listeners.has(type)) listeners.set(type, []);
+      listeners.get(type).push(handler);
+    },
     createElement(tag) {
       if (tag === 'script') {
         calls.script += 1;
@@ -139,6 +143,15 @@ function fixture(page, href) {
   const localValues = new Map();
   const window = {
     location,
+    YardButtonFeedback: {
+      setState(button, state) {
+        calls.feedback.push({ button, state });
+        if (button) {
+          if (state === 'idle') delete button.dataset.feedbackState;
+          else button.dataset.feedbackState = state;
+        }
+      }
+    },
     cloudbase: {
       init() {
         calls.sdk += 1;
@@ -167,6 +180,21 @@ function fixture(page, href) {
     console,
     URL,
     AbortController,
+    FormData: class {
+      constructor(form) {
+        this.values = form.values || {};
+      }
+      get(key) {
+        return this.values[key] ?? null;
+      }
+      getAll(key) {
+        const value = this.values[key];
+        return value === undefined ? [] : Array.isArray(value) ? value : [value];
+      }
+      [Symbol.iterator]() {
+        return Object.entries(this.values)[Symbol.iterator]();
+      }
+    },
     localStorage: { getItem: key => localValues.get(key) || null, setItem: (key, value) => localValues.set(key, value) },
     fetch() {
       calls.fetch += 1;
@@ -178,7 +206,7 @@ function fixture(page, href) {
     },
     clearTimeout() {}
   });
-  return { context, calls, hosts, body, localNotice };
+  return { context, calls, hosts, body, localNotice, listeners };
 }
 
 async function test(label, body) {
@@ -315,6 +343,79 @@ async function offlineRequest(method, url, host = '127.0.0.1:4173') {
     assert.match(value.hosts.get('#matchPhotoResult').innerHTML, /照片不会上传/);
     await assert.rejects(vm.runInContext('callYardApi({ action: "application.submit" })', value.context), /本地审核/);
     assertNoCloudCalls(value);
+    assert.equal(
+      value.calls.feedback.some(item => item.state === 'success'),
+      false,
+      'Blocked AI must not celebrate a fake success'
+    );
+  });
+
+  await test('申请提交在本地阻断后给出失败反馈、保留资料并恢复按钮，允许重试', async () => {
+    const value = fixture('pets', 'http://127.0.0.1:4173/pets.html');
+    await initialize(value);
+    const form = element();
+    form.id = 'applicationForm';
+    form.dataset = { petId: 'afu', kind: '正式领养申请' };
+    form.values = { name: '本地测试', contact: 'LOCAL_TEST_ONLY', note: '不可丢失的本地输入' };
+    const button = element();
+    button.textContent = '提交申请';
+    form.children.set('button[type="submit"]', button);
+    for (let attempt = 0; attempt < 2; attempt++) {
+      for (const handler of value.listeners.get('submit')) await handler({ target: form, preventDefault() {} });
+      assert.equal(button.disabled, false);
+      assert.equal(button.textContent, '提交申请');
+      assert.equal(form.values.note, '不可丢失的本地输入');
+    }
+    assert.deepEqual(
+      value.calls.feedback.map(item => item.state),
+      ['loading', 'error', 'loading', 'error']
+    );
+    assert.match(value.hosts.get('#toast').textContent, /本地审核/);
+    assertNoCloudCalls(value);
+  });
+
+  await test('后台保存完成后在重建的新按钮显示成功，不残留旧按钮 loading', async () => {
+    const value = fixture('admin', 'http://127.0.0.1:4173/admin.html?tab=settings');
+    await initialize(value);
+    const form = element();
+    form.values = { intro: '本地演示说明', area: '本地审核' };
+    const button = element();
+    button.textContent = '保存网站设置';
+    const replacement = element();
+    form.children.set('button[type="submit"]', button);
+    value.hosts.set('#settingsForm button[type="submit"]', replacement);
+    value.context.__testForm = form;
+    await vm.runInContext('saveWebsiteSettings({ currentTarget: __testForm, preventDefault() {} })', value.context);
+    assert.deepEqual(
+      value.calls.feedback.map(item => item.state),
+      ['loading', 'success', 'idle']
+    );
+    assert.equal(value.calls.feedback[1].button, replacement);
+    assert.equal(button.disabled, false);
+    assert.equal(button.dataset.feedbackState, undefined);
+    assert.equal(replacement.dataset.feedbackState, 'success');
+    assert.match(value.hosts.get('#toast').textContent, /保存到本地/);
+    assertNoCloudCalls(value);
+  });
+
+  await test('后台私密配置未能写入云端时不误报全部保存成功', async () => {
+    const value = fixture('admin', 'http://127.0.0.1:4173/admin.html?tab=settings');
+    await initialize(value);
+    const form = element();
+    form.values = { intro: '本地演示说明', wecomWebhook: 'https://example.invalid/local-only' };
+    const button = element();
+    const replacement = element();
+    form.children.set('button[type="submit"]', button);
+    value.hosts.set('#settingsForm button[type="submit"]', replacement);
+    value.context.__testForm = form;
+    await vm.runInContext('saveWebsiteSettings({ currentTarget: __testForm, preventDefault() {} })', value.context);
+    assert.deepEqual(
+      value.calls.feedback.map(item => item.state),
+      ['loading', 'error', 'idle']
+    );
+    assert.equal(replacement.dataset.feedbackState, 'error');
+    assert.match(value.hosts.get('#toast').textContent, /没能写入云端/);
+    assertNoCloudCalls(value);
   });
 
   await test('首页旧入口保留 query 跳转到独立页面', async () => {
@@ -338,6 +439,7 @@ async function offlineRequest(method, url, host = '127.0.0.1:4173') {
       'styles.css',
       'site-config.js',
       'page-transitions.js',
+      'button-feedback.js',
       'assets/team-photo.jpg'
     ]) {
       assert.equal(previewRelativePath(`/${file}?review=1`), file);

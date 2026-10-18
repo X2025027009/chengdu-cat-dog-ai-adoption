@@ -123,6 +123,7 @@ function maskKey(value) {
   return text.length > 12 ? `${text.slice(0, 4)}••••••${text.slice(-4)}` : `${text.slice(0, 2)}••••`;
 }
 let filters = { status: '待领养', type: '全部' };
+const filterFeedbackTimers = new WeakMap();
 let adminTab = 'overview';
 let adminEditing = null;
 let returnFocus = null;
@@ -138,6 +139,9 @@ let publicApplicationAuthPromise = null;
 
 const $ = (selector, root = document) => root?.querySelector(selector) || null;
 const $$ = (selector, root = document) => [...(root?.querySelectorAll(selector) || [])];
+function buttonFeedback(button, state, options) {
+  window.YardButtonFeedback?.setState(button, state, options);
+}
 const escapeHtml = (value = '') => String(value).replace(/[&<>'"]/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[char]));
 const petById = (id) => pets.find(pet => pet.id === id);
 const makeMediaId = () => `media-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -1425,8 +1429,10 @@ function bindAdminEvents() {
     catch (error) { toast(error.message); return; }
     const changedFields = Object.keys(applicantEdits.patch);
     const button = $('button[type="submit"]', form);
+    if (button?.disabled) return;
     const previousLabel = button?.textContent;
     if (button) { button.disabled = true; button.textContent = '正在保存…'; }
+    buttonFeedback(button, 'loading');
     try {
       if (Array.isArray(cloudApplications) && cloudDb && adminAuthUser) {
         const patch = {
@@ -1461,10 +1467,12 @@ function bindAdminEvents() {
         saveApplications();
       }
       renderStats();
+      buttonFeedback(button, 'success');
       toast(changedFields.length
         ? '处理结果与申请人资料都已保存'
         : (Array.isArray(cloudApplications) ? '申请处理结果已同步到云端' : '申请处理结果已保存到本地'));
     } catch (error) {
+      buttonFeedback(button, 'error');
       toast(error.message || '申请处理结果保存失败，请稍后重试。');
     } finally {
       if (button) { button.disabled = false; button.textContent = previousLabel || '保存处理结果'; }
@@ -1580,8 +1588,10 @@ async function saveWebsiteSettings(event) {
     return;
   }
   const button = $('button[type="submit"]', form);
+  if (button?.disabled) return;
   const previousLabel = button?.textContent;
   if (button) { button.disabled = true; button.textContent = '正在保存…'; }
+  buttonFeedback(button, 'loading');
   let nextSettings = {
     ...settings,
     phone: String(new FormData(form).get('phone') || '').trim(),
@@ -1628,6 +1638,8 @@ async function saveWebsiteSettings(event) {
       catch (error) { toast('联系方式已保存，但旧二维码暂未清理。请稍后重新保存一次。'); }
     }
     renderAdmin();
+    const incomplete = (shouldSaveWebhook && !webhookSaved) || (shouldSaveAiKey && !aiKeySaved) || (shouldSaveTokenhubKey && !tokenhubKeySaved);
+    buttonFeedback($('#settingsForm button[type="submit"]'), incomplete ? 'error' : 'success');
     if (shouldSaveWebhook && !webhookSaved) {
       toast('网站设置已保存，但企业微信机器人地址没能写入云端，请连接云端后重新保存一次。');
     } else if (shouldSaveAiKey && !aiKeySaved) {
@@ -1644,6 +1656,7 @@ async function saveWebsiteSettings(event) {
     else if (webhookSaved) toast('网站设置已保存，企业微信提醒已开启');
     else toast(cloudSaved ? '联系方式和二维码已同步到云端' : '联系方式和二维码已保存到本地');
   } catch (error) {
+    buttonFeedback(button, 'error');
     if (replacementQr?.wechatQrPath && cloudMediaBucket) {
       await cloudMediaBucket.remove([replacementQr.wechatQrPath]);
     }
@@ -1653,6 +1666,8 @@ async function saveWebsiteSettings(event) {
     }
     toast(error.message || '网站设置保存失败，请稍后重试。');
   } finally {
+    // 成功时后台表单已重建；清理旧按钮的 loading，不影响新按钮的结果提示。
+    if (button?.dataset.feedbackState === 'loading') buttonFeedback(button, 'idle');
     if (button) { button.disabled = false; button.textContent = previousLabel || '保存网站设置'; }
   }
 }
@@ -1750,7 +1765,8 @@ async function deletePetFromLocal(pet) {
     if (item.url?.startsWith('blob:')) URL.revokeObjectURL(item.url);
   }));
 }
-async function handlePetDelete(id) {
+async function handlePetDelete(id, button) {
+  if (button?.disabled) return;
   const pet = petById(id);
   if (!pet) return;
   const relatedApplications = adminApplications().filter(application => application.petId === pet.id);
@@ -1764,6 +1780,8 @@ async function handlePetDelete(id) {
     : '';
   const confirmed = window.confirm(`确定删除“${pet.name}”的宠物档案吗？\n\n这会同时移除公开资料、照片、视频和回访记录。此操作不能撤销。${applicationWarning}`);
   if (!confirmed) return;
+  if (button) button.disabled = true;
+  buttonFeedback(button, 'loading');
   try {
     const cloudResult = await deletePetFromCloud(pet);
     await deletePetFromLocal(pet);
@@ -1775,10 +1793,14 @@ async function handlePetDelete(id) {
     if (adminEditing === pet.id) adminEditing = null;
     renderAll();
     renderAdmin();
+    buttonFeedback(button, 'success');
     const applicationNote = relatedApplications.length ? `，以及 ${relatedApplications.length} 条关联申请` : '';
     toast(cloudResult ? `${pet.name} 的档案、云端媒体${applicationNote}已删除` : `${pet.name} 的档案${applicationNote}已从本地删除`);
   } catch (error) {
+    buttonFeedback(button, 'error');
     toast(error.message || '宠物档案删除失败，请稍后重试。');
+  } finally {
+    if (button) button.disabled = false;
   }
 }
 /**
@@ -1835,9 +1857,11 @@ function renderApplicationSummary(container, result) {
   container.innerHTML = html;
 }
 async function handleApplicationSummarize(id, button) {
+  if (button?.disabled) return;
   const container = $(`[data-ai-summary-for="${id}"]`);
   const previous = button?.textContent;
   if (button) { button.disabled = true; button.textContent = '生成中…'; }
+  buttonFeedback(button, 'loading');
   try {
     // 已有摘要时带上 force：管理员点"重新生成"就是要重算，
     // 不该拿缓存把这次点击挡回去
@@ -1851,8 +1875,10 @@ async function handleApplicationSummarize(id, button) {
       application.aiSummaryStale = false;
     }
     $('[data-ai-summary-stale]')?.remove();
+    buttonFeedback(button, 'success');
     toast(result.cached ? '已读取上次生成的摘要' : '摘要已保存，下次打开不用重新生成');
   } catch (error) {
+    buttonFeedback(button, 'error');
     if (container) {
       container.hidden = false;
       container.innerHTML = `<p class="ai-summary-caution">生成摘要失败：${escapeHtml(error.message || '请稍后重试')}</p>`;
@@ -1906,14 +1932,18 @@ function renderDiagnoseResult(container, report) {
     </ul>`;
 }
 async function handleDiagnoseAi(button) {
+  if (button?.disabled) return;
   const container = $('[data-diagnose-result]');
   const previous = button?.textContent;
   if (button) { button.disabled = true; button.textContent = '检查中…'; }
+  buttonFeedback(button, 'loading');
   try {
     const result = await callYardApi({ action: 'admin.ai.diagnose' });
     if (result?.ok !== true) throw new Error(result?.message || '自检失败。');
     renderDiagnoseResult(container, result);
+    buttonFeedback(button, 'success');
   } catch (error) {
+    buttonFeedback(button, 'error');
     if (container) {
       container.hidden = false;
       container.innerHTML = `<p class="ai-summary-caution">自检失败：${escapeHtml(error.message || '请稍后重试')}</p>`;
@@ -1951,6 +1981,7 @@ function downscaleImageToDataUrl(file, maxSize = 768) {
 }
 
 async function handleDescribePhoto(button) {
+  if (button?.disabled) return;
   const file = $('#petCoverFile')?.files?.[0];
   if (!file) {
     toast('请先选择封面照片，再点「用封面照片自动写一段」。');
@@ -1961,6 +1992,7 @@ async function handleDescribePhoto(button) {
   const previous = button.textContent;
   button.disabled = true;
   button.textContent = '正在读照片…';
+  buttonFeedback(button, 'loading');
   try {
     const image = await downscaleImageToDataUrl(file);
     const species = form?.querySelector('select[name="petType"]')?.value || '';
@@ -1970,8 +2002,10 @@ async function handleDescribePhoto(button) {
       textarea.value = result.description;
       textarea.focus();
     }
+    buttonFeedback(button, 'success');
     toast('已写入描述，请按实际情况修改后再保存');
   } catch (error) {
+    buttonFeedback(button, 'error');
     toast(error.message || '识别失败，请稍后重试。');
   } finally {
     button.disabled = false;
@@ -1979,12 +2013,15 @@ async function handleDescribePhoto(button) {
   }
 }
 
-async function handleApplicationDelete(id) {
+async function handleApplicationDelete(id, button) {
+  if (button?.disabled) return;
   const application = adminApplications().find(item => item.id === id);
   if (!application) { toast('没有找到这条申请，请刷新管理员后台后重试。'); return; }
   const petName = application.petName || petById(application.petId)?.name || '对应宠物';
   const confirmed = window.confirm(`确定删除“${application.name}”提交给“${petName}”的申请吗？\n\n申请资料、内部备注和处理历史都会被删除，且无法恢复。`);
   if (!confirmed) return;
+  if (button) button.disabled = true;
+  buttonFeedback(button, 'loading');
   try {
     const isCloudInbox = Array.isArray(cloudApplications);
     if (cloudState.connected && adminAuthUser && !isCloudInbox) {
@@ -2001,14 +2038,23 @@ async function handleApplicationDelete(id) {
     saveApplications();
     renderStats();
     renderAdmin();
+    buttonFeedback(button, 'success');
     toast(isCloudInbox ? '申请记录已删除' : '申请记录已从本地删除');
   } catch (error) {
+    buttonFeedback(button, 'error');
     toast(error.message || '申请记录删除失败，请稍后重试。');
+  } finally {
+    if (button) button.disabled = false;
   }
 }
 async function handlePetSave(event) {
   event.preventDefault();
   const form = event.currentTarget;
+  const button = $('button[type="submit"]', form);
+  if (button?.disabled) return;
+  const previousLabel = button?.textContent;
+  if (button) { button.disabled = true; button.textContent = '正在保存…'; }
+  buttonFeedback(button, 'loading');
   const formData = new FormData(form);
   const data = Object.fromEntries(formData);
   const id = form.dataset.petId;
@@ -2035,6 +2081,7 @@ async function handlePetSave(event) {
     const uploadedGalleryCover = galleryUploads.find(item => item.type === 'image');
     const cover = coverUpload[0] || linkedCover || selectedExistingCover || fallbackExistingCover || uploadedGalleryCover;
     if (!cover) {
+      buttonFeedback(button, 'error');
       toast('请至少保留一张照片，或上传一张新的封面照片');
       return;
     }
@@ -2072,9 +2119,13 @@ async function handlePetSave(event) {
     }));
     pendingCoverFile = null;
     pendingGalleryFiles = [];
+    buttonFeedback(button, 'success');
     adminEditing = null; renderAll(); renderAdmin(); toast(cloudSaved ? (id ? '宠物档案和影像记录已同步到云端' : '新的宠物档案已同步到云端') : (id ? '宠物档案和影像记录已保存到本地' : '新的宠物档案已保存到本地'));
   } catch (error) {
+    buttonFeedback(button, 'error');
     toast(error.message || '部分文件无法读取，请检查图片或视频格式和大小');
+  } finally {
+    if (button) { button.disabled = false; button.textContent = previousLabel || '保存档案'; }
   }
 }
 function renderAll() {
@@ -2083,11 +2134,22 @@ function renderAll() {
 }
 
 function setFilter(group, value) {
+  const changed = filters[group] !== value;
   filters[group] = value;
   $$(`[data-filter="${group}"]`).forEach(button => {
     const isActive = button.dataset.value === value;
     button.classList.toggle('active', isActive);
     button.setAttribute('aria-pressed', String(isActive));
+    clearTimeout(filterFeedbackTimers.get(button));
+    filterFeedbackTimers.delete(button);
+    button.classList.remove('feedback-selected');
+    if (changed && isActive) {
+      button.classList.add('feedback-selected');
+      filterFeedbackTimers.set(button, setTimeout(() => {
+        button.classList.remove('feedback-selected');
+        filterFeedbackTimers.delete(button);
+      }, 260));
+    }
   });
   renderPets();
 }
@@ -2118,7 +2180,7 @@ document.addEventListener('click', event => {
   const filterButton = event.target.closest('[data-filter]');
   if (filterButton) { setFilter(filterButton.dataset.filter, filterButton.dataset.value); return; }
   const deleteApplicationButton = event.target.closest('[data-delete-application]');
-  if (deleteApplicationButton) { handleApplicationDelete(deleteApplicationButton.dataset.deleteApplication); return; }
+  if (deleteApplicationButton) { handleApplicationDelete(deleteApplicationButton.dataset.deleteApplication, deleteApplicationButton); return; }
   const summarizeButton = event.target.closest('[data-summarize-application]');
   if (summarizeButton) { handleApplicationSummarize(summarizeButton.dataset.summarizeApplication, summarizeButton); return; }
   if (event.target.closest('[data-diagnose-ai]')) { handleDiagnoseAi(event.target.closest('[data-diagnose-ai]')); return; }
@@ -2131,7 +2193,7 @@ document.addEventListener('click', event => {
     return;
   }
   const deletePetButton = event.target.closest('[data-delete-pet]');
-  if (deletePetButton) { handlePetDelete(deletePetButton.dataset.deletePet); return; }
+  if (deletePetButton) { handlePetDelete(deletePetButton.dataset.deletePet, deletePetButton); return; }
   if (event.target.closest('[data-admin-login]')) { openAdmin(); return; }
   if (event.target.closest('#footerEditApplication')) { openMyApplicationEditor(); return; }
   if (event.target.closest('[data-open-my-application]')) { openMyApplicationEditor(); return; }
@@ -2158,14 +2220,23 @@ document.addEventListener('submit', async event => {
   const form = event.target;
   const data = Object.fromEntries(new FormData(form));
   if (!cloudApp) { openAdminLogin('云端登录组件尚未加载，请刷新页面后重试。'); return; }
+  const button = $('button[type="submit"]', form);
+  if (button?.disabled) return;
+  const previousLabel = button?.textContent;
+  if (button) { button.disabled = true; button.textContent = '正在登录…'; }
+  buttonFeedback(button, 'loading');
   try {
     const result = await cloudApp.auth().signInWithPassword({ username: String(data.username || '').trim(), password: String(data.password || '') });
-    if (result?.error) { openAdminLogin(result.error.message || '用户名或密码不正确。'); return; }
-    if (!(await ensureAdminAccess())) return;
+    if (result?.error) { buttonFeedback(button, 'error'); openAdminLogin(result.error.message || '用户名或密码不正确。'); return; }
+    if (!(await ensureAdminAccess())) { buttonFeedback(button, 'error'); return; }
+    buttonFeedback(button, 'success');
     closeModal();
     await openAdmin();
   } catch (error) {
+    buttonFeedback(button, 'error');
     openAdminLogin(error.message || '登录暂时不可用，请稍后重试。');
+  } finally {
+    if (button) { button.disabled = false; button.textContent = previousLabel || '登录管理员后台'; }
   }
 });
 async function ensurePublicApplicationSession() {
@@ -2239,12 +2310,16 @@ async function openMyApplicationEditor() {
   const token = latestEditToken();
   if (!token) { openEditTokenModal(''); return; }
   const button = $('#applicantNotice button');
+  if (button?.disabled) return;
   if (button) { button.disabled = true; }
+  buttonFeedback(button, 'loading');
   try {
     const result = await callYardApi({ action: 'application.lookup', token });
     if (!result.ok) throw new Error(result.message || '修改凭证无效。');
+    buttonFeedback(button, 'success');
     openApplicationEditForm(result, token);
   } catch (error) {
+    buttonFeedback(button, 'error');
     toast(`${error.message || '修改凭证校验失败'} 也可以直接联系管理员帮你改。`);
   } finally {
     if (button) { button.disabled = false; }
@@ -2355,6 +2430,7 @@ document.addEventListener('submit', async event => {
   const previousLabel = button?.textContent;
   if (button?.disabled) return;
   if (button) { button.disabled = true; button.textContent = '正在提交...'; }
+  buttonFeedback(button, 'loading');
   try {
     const result = await submitApplicationThroughFunction(form, pet, data, kind);
     applications.unshift({
@@ -2366,8 +2442,10 @@ document.addEventListener('submit', async event => {
     rememberEditToken(result.applicationId, result.editToken);
     store.set(EDIT_NOTICE_DISMISSED_KEY, false);
     renderApplicantEditBanner();
+    buttonFeedback(button, 'success');
     openApplicationSuccessModal(pet, kind, result);
   } catch (error) {
+    buttonFeedback(button, 'error');
     toast(error.message || '申请提交失败，请稍后重试。');
   } finally {
     if (button) { button.disabled = false; button.textContent = previousLabel || `提交${kind === '预约申请' ? '预约' : '申请'}`; }
@@ -2379,13 +2457,17 @@ document.addEventListener('submit', async event => {
   const form = event.target;
   const token = String(new FormData(form).get('token') || '').trim();
   const button = $('button[type="submit"]', form);
+  if (button?.disabled) return;
   const previousLabel = button?.textContent;
   if (button) { button.disabled = true; button.textContent = '正在核对...'; }
+  buttonFeedback(button, 'loading');
   try {
     const result = await callYardApi({ action: 'application.lookup', token });
     if (!result.ok) throw new Error(result.message || '修改凭证无效。');
+    buttonFeedback(button, 'success');
     openApplicationEditForm(result, token);
   } catch (error) {
+    buttonFeedback(button, 'error');
     toast(error.message || '修改凭证校验失败，请稍后重试。');
   } finally {
     if (button) { button.disabled = false; button.textContent = previousLabel || '查看并修改'; }
@@ -2401,6 +2483,7 @@ document.addEventListener('submit', async event => {
   const previousLabel = button?.textContent;
   if (button?.disabled) return;
   if (button) { button.disabled = true; button.textContent = '正在保存...'; }
+  buttonFeedback(button, 'loading');
   try {
     const result = await callYardApi({
       action: 'application.edit',
@@ -2418,9 +2501,11 @@ document.addEventListener('submit', async event => {
     if (!result.ok) throw new Error(result.message || '申请修改失败，请稍后重试。');
     const index = applications.findIndex(item => item.id === result.applicationId);
     if (index >= 0) { applications[index] = { ...applications[index], ...data }; saveApplications(); }
+    buttonFeedback(button, 'success');
     closeModal();
     toast('申请资料已更新，管理员看到的就是最新内容。');
   } catch (error) {
+    buttonFeedback(button, 'error');
     toast(error.message || '申请修改失败，请稍后重试。');
   } finally {
     if (button) { button.disabled = false; button.textContent = previousLabel || '保存修改'; }
@@ -2532,6 +2617,7 @@ function matchSetBusy(busy) {
   if (submit) {
     submit.disabled = busy;
     submit.textContent = busy ? '正在思考…' : (matchState.messages.length ? '继续提问' : '开始匹配');
+    if (busy) buttonFeedback(submit, 'loading');
   }
   if (input) input.disabled = busy;
   if (reset && matchState.messages.length) reset.hidden = false;
@@ -2785,8 +2871,10 @@ async function handlePhotoSearch(file) {
     return;
   }
   const label = $('#matchPhotoLabel');
+  const picker = label?.closest('.match-photo-pick');
   const previous = label?.textContent;
   if (label) label.textContent = '正在比对…';
+  buttonFeedback(picker, 'loading');
   if (container) {
     container.hidden = false;
     container.innerHTML = '<p class="match-photo-empty">正在读照片并和站内宠物比对，第一次会稍慢…</p>';
@@ -2801,6 +2889,7 @@ async function handlePhotoSearch(file) {
     const result = await response.json().catch(() => null);
     if (!result) throw new Error(`服务返回无法解析的内容（${response.status}）。`);
     if (result.ok !== true) throw new Error(result.message || '比对失败。');
+    buttonFeedback(picker, 'success');
     // 建索引时单张失败不影响整体，但要让用户知道有几张没成功，
     // 否则"结果少了"会被当成模型不准
     const failed = Array.isArray(result.failures) ? result.failures : [];
@@ -2812,6 +2901,7 @@ async function handlePhotoSearch(file) {
       container.appendChild(note);
     }
   } catch (error) {
+    buttonFeedback(picker, 'error');
     if (container) {
       container.hidden = false;
       container.innerHTML = `<p class="match-photo-empty">${escapeHtml(error.message || '比对失败，请稍后重试。')}</p>`;
@@ -2853,6 +2943,8 @@ async function matchAsk(preset) {
   bubble.classList.add('is-pending');
   let answer = '';
   let failure = '';
+  let completed = false;
+  let cancelled = false;
   const sources = [];
 
   matchState.controller = new AbortController();
@@ -2908,6 +3000,7 @@ async function matchAsk(preset) {
       // 不依赖模型在正文里引用——它可能忘了说，而"依据可查"不能靠它自觉。
       matchAppendSources(sources);
       matchAppendSpeak(answer);
+      completed = !failure;
     } else {
       bubble.classList.add('is-error');
       bubble.textContent = failure || 'AI 这次没有给出回复，请再试一次。';
@@ -2915,6 +3008,7 @@ async function matchAsk(preset) {
   } catch (error) {
     bubble.classList.remove('is-pending');
     bubble.classList.add('is-error');
+    cancelled = error?.name === 'AbortError';
     bubble.textContent = error?.name === 'AbortError'
       ? '已停止这次回答。'
       : (error?.message || 'AI 服务暂时不可用，请稍后再试。');
@@ -2923,6 +3017,7 @@ async function matchAsk(preset) {
     matchState.streaming = false;
     matchState.controller = null;
     matchSetBusy(false);
+    buttonFeedback($('#matchSubmit'), cancelled ? 'idle' : completed ? 'success' : 'error', { paw: completed });
     input?.focus();
   }
 }
