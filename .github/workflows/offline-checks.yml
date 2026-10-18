@@ -1,0 +1,42 @@
+name: 离线源码回归
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: offline-checks-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  offline-checks:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - name: 获取完整开发历史
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: 配置 Node.js 24
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '24'
+      # 仅下载依赖；后面的源码回归不运行线上检查、部署或真实模型请求。
+      - name: 按锁文件安装依赖
+        run: npm ci
+      - name: ESLint
+        run: npm run lint
+      - name: 格式检查
+        run: npm run format:check
+      - name: 多页结构检查
+        run: node tools/check-multipage.cjs
+      - name: 仓库合规检查
+        run: node tools/check-repo-compliance.cjs
+      - name: 完全离线回归
+        run: npm test
