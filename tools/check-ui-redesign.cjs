@@ -139,8 +139,18 @@ for (const [filter, values] of Object.entries({ status: ['待领养', '已领养
 }
 check('pets: dynamic grid announces updates', byId(pets, 'petGrid')?.attrs['aria-live'] === 'polite');
 const app = fs.readFileSync(path.join(root, 'app.js'), 'utf8');
-check('pets: photo drawer only opens on the pets page', app.includes("const photoDrawer = SITE_PAGE === 'pets'") && app.includes("photoDrawer ? 'pet-drawer' : ''"));
-check('pets: detail drawer preserves focus and clears its backdrop class', app.includes("backdrop?.classList.remove('pet-drawer-backdrop')") && app.includes("event.key === 'Tab' && petDrawer"));
+check(
+  'shared: every pet-detail entry uses the approved photo drawer',
+  app.includes('modal-detail modal-detail-media pet-photo-drawer') && !app.includes('const photoDrawer = SITE_PAGE') && app.includes("</div>`, 'pet-drawer')")
+);
+check(
+  'shared: drawers and forms preserve focus and clear their backdrop class',
+  app.includes("backdrop?.classList.remove('pet-drawer-backdrop')") && app.includes("event.key === 'Tab' && activeModal")
+);
+check(
+  'shared: form dialog matches its content width instead of leaving a blank right column',
+  css.includes('.modal.form-dialog { width: min(620px, 100%)') && css.includes('.form-dialog > .form-modal { width: 100%')
+);
 check('pets: photograph and details have separate entrance motions', css.includes('pet-photo-pop 380ms') && css.includes('pet-info-rise 440ms') && css.includes('170ms both'));
 check(
   'pets: drawer travel is skipped for reduced motion',

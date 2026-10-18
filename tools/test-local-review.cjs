@@ -254,6 +254,59 @@ async function offlineRequest(method, url, host = '127.0.0.1:4173') {
     });
   }
 
+  for (const page of PAGES) {
+    await test(`${page} 的三类宠物详情统一使用照片抽屉且关闭后恢复焦点`, async () => {
+      const file = page === 'home' ? 'index' : page;
+      const value = fixture(page, `http://127.0.0.1:4173/${file}.html`);
+      await initialize(value);
+      let restored = 0;
+      value.context.document.activeElement = { focus: () => restored++ };
+      const ids = vm.runInContext('pets.map(pet => pet.id)', value.context);
+      const statuses = new Set();
+      for (const id of ids) {
+        vm.runInContext(`openPetDetail(${JSON.stringify(id)})`, value.context);
+        const html = value.hosts.get('#modal').innerHTML;
+        statuses.add(vm.runInContext(`petById(${JSON.stringify(id)}).status`, value.context));
+        assert.match(html, /modal-detail modal-detail-media pet-photo-drawer/);
+        assert.equal((html.match(/data-close-modal/g) || []).length, 1);
+        assert.match(html, /id="modalTitle"/);
+        assert.match(html, /gallery-stage/);
+        assert.equal(value.hosts.get('#modalBackdrop').classList.contains('pet-drawer-backdrop'), true);
+        assert.equal(value.body.classList.contains('modal-open'), true);
+        vm.runInContext('closeModal()', value.context);
+        assert.equal(value.hosts.get('#modalBackdrop').classList.contains('pet-drawer-backdrop'), false);
+        assert.equal(value.hosts.get('#modalBackdrop').classList.contains('hidden'), true);
+        assert.equal(value.body.classList.contains('modal-open'), false);
+      }
+      assert.equal(restored, ids.length);
+      assert.equal(statuses.size, 3);
+      assertNoCloudCalls(value);
+    });
+  }
+
+  await test('详情切到申请表单使用匹配宽度并重置滚动，退出后不残留表单样式', async () => {
+    const value = fixture('home', 'http://127.0.0.1:4173/index.html');
+    await initialize(value);
+    const modal = value.hosts.get('#modal');
+    modal.querySelector = selector => (selector === '.form-modal:not(.crop-modal)' && modal.innerHTML.includes('class="form-modal"') ? element() : null);
+    const id = vm.runInContext('pets.find(pet => pet.status === "待领养").id', value.context);
+    vm.runInContext(`openPetDetail(${JSON.stringify(id)})`, value.context);
+    modal.scrollTop = 430;
+    vm.runInContext(`openApplicationForm(${JSON.stringify(id)}, "正式领养申请")`, value.context);
+    assert.equal(modal.classList.contains('form-dialog'), true);
+    assert.equal(modal.scrollTop, 0);
+    assert.equal(value.hosts.get('#modalBackdrop').classList.contains('pet-drawer-backdrop'), false);
+    assert.match(modal.innerHTML, /id="applicationForm"/);
+    assert.match(modal.innerHTML, /提交申请/);
+    vm.runInContext('closeModal()', value.context);
+    assert.equal(modal.classList.contains('form-dialog'), false);
+    vm.runInContext(`openPetDetail(${JSON.stringify(id)})`, value.context);
+    assert.equal(modal.classList.contains('form-dialog'), false);
+    vm.runInContext('openModal(\'<div class="form-modal crop-modal"></div>\')', value.context);
+    assert.equal(modal.classList.contains('form-dialog'), false, 'Photo cropping keeps its own width');
+    assertNoCloudCalls(value);
+  });
+
   await test('本地 AI、图搜和申请操作提前阻断', async () => {
     const value = fixture('match', 'http://127.0.0.1:4173/match.html');
     await initialize(value);

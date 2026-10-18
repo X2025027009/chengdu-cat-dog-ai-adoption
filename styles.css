@@ -261,6 +261,10 @@ h2 { font-size: clamp(30px, 3.4vw, 48px); }
 .archive-updates strong { color: var(--ink); }
 
 .form-modal { width: min(620px,100%); padding: 34px; }
+.modal.form-dialog { width: min(620px, 100%); overscroll-behavior: contain; }
+.form-dialog > .form-modal { width: 100%; }
+.form-dialog .form-modal-header > div { min-width: 0; }
+.form-dialog .form-modal-header .modal-close { flex-shrink: 0; }
 .form-modal-header { display: flex; align-items: start; justify-content: space-between; gap: 20px; margin-bottom: 25px; }
 .form-modal-header h2 { margin: 0; font-size: 34px; }
 .form-modal-header p { margin: 6px 0 0; color: var(--muted); font-size: 13px; }
@@ -459,7 +463,7 @@ h2 { font-size: clamp(30px, 3.4vw, 48px); }
   .modal-main { padding: 31px 23px 26px; }
   .modal-main h2 { font-size: 36px; }
   .modal-actions { flex-direction: column; }
-  .form-modal { padding: 26px 20px; }
+  .form-modal { padding: 26px 20px max(26px, env(safe-area-inset-bottom)); }
   .form-modal-header h2 { font-size: 28px; }
   .form-grid { grid-template-columns: 1fr; }
   .form-grid .full { grid-column: auto; }
@@ -1319,7 +1323,7 @@ body[data-page="about"] .about-section { padding: 34px 0 40px; background: var(-
   .dashboard-stats { grid-template-columns: repeat(2,1fr); }
 }
 
-/* 仅在「寻找伙伴」页试行：照片是档案封面，详情抽屉覆盖其下沿。 */
+/* 全站宠物详情共用：照片是档案封面，详情抽屉覆盖其下沿。 */
 .pet-drawer-backdrop { background: rgba(30, 29, 26, .7); backdrop-filter: none; }
 .pet-drawer-backdrop .modal { width: min(760px, 100%); max-height: calc(100dvh - 36px); overflow-x: hidden; overscroll-behavior: contain; border-radius: 24px; background: transparent; box-shadow: 0 28px 75px rgba(0, 0, 0, .28); }
 .pet-photo-drawer { display: block; min-height: 0; }

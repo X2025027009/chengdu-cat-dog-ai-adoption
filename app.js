@@ -692,6 +692,8 @@ function openModal(content, presentation = '') {
   if (backdrop.classList.contains('hidden')) returnFocus = document.activeElement;
   backdrop.classList.toggle('pet-drawer-backdrop', presentation === 'pet-drawer');
   modal.innerHTML = content;
+  modal.classList.toggle('form-dialog', Boolean($('.form-modal:not(.crop-modal)', modal)));
+  modal.scrollTop = 0;
   backdrop.classList.remove('hidden');
   backdrop.setAttribute('aria-hidden', 'false');
   document.body.classList.add('modal-open');
@@ -707,7 +709,10 @@ function closeModal() {
   backdrop?.classList.add('hidden');
   backdrop?.setAttribute('aria-hidden', 'true');
   const modal = $('#modal');
-  if (modal) modal.innerHTML = '';
+  if (modal) {
+    modal.innerHTML = '';
+    modal.classList.remove('form-dialog');
+  }
   document.body.classList.remove('modal-open');
   returnFocus?.focus?.();
 }
@@ -891,7 +896,6 @@ function applyPhotoCrop() {
 function openPetDetail(id) {
   const pet = petById(id);
   if (!pet) return;
-  const photoDrawer = SITE_PAGE === 'pets';
   const closeButton = '<button class="modal-close" type="button" data-close-modal aria-label="关闭详情"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>';
   const updates = pet.updates?.length ? `<ul class="archive-updates">${pet.updates.map(update => `<li><strong>${escapeHtml(update.date)}</strong> · ${escapeHtml(update.text)}</li>`).join('')}</ul>` : '';
   const extra = pet.status === '暂不适合领养' ? `<div class="detail-block"><h3>当前说明</h3><p>${escapeHtml(pet.reason || statusDescription(pet.status))}</p></div>` : '';
@@ -902,13 +906,10 @@ function openPetDetail(id) {
       ? `<button class="button button-primary" data-apply-pet="${pet.id}" data-application-kind="预约申请">预约领养</button>`
       : `<button class="button button-primary" data-scroll-updates>查看回访记录</button>`;
   openModal(`
-    <div class="modal-detail modal-detail-media ${photoDrawer ? 'pet-photo-drawer' : ''}">
-      <div class="modal-image">${photoDrawer ? closeButton : ''}${galleryMarkup(pet)}<span class="status-pill ${statusClass(pet.status)}">${escapeHtml(pet.status)}</span></div>
+    <div class="modal-detail modal-detail-media pet-photo-drawer">
+      <div class="modal-image">${closeButton}${galleryMarkup(pet)}<span class="status-pill ${statusClass(pet.status)}">${escapeHtml(pet.status)}</span></div>
       <div class="modal-main">
-        ${photoDrawer ? '' : closeButton}
-        ${photoDrawer
-          ? `<h2 id="modalTitle">${escapeHtml(pet.name)}</h2><p class="pet-drawer-context">${escapeHtml(statusDescription(pet.status))} · ${mediaItems(pet).length} 个影像记录</p>`
-          : `<p class="modal-overline">${escapeHtml(statusDescription(pet.status))} · ${mediaItems(pet).length} 个影像记录</p><h2 id="modalTitle">${escapeHtml(pet.name)}</h2>`}
+        <h2 id="modalTitle">${escapeHtml(pet.name)}</h2><p class="pet-drawer-context">${escapeHtml(statusDescription(pet.status))} · ${mediaItems(pet).length} 个影像记录</p>
         <p class="modal-description">${escapeHtml(pet.description)}</p>
         <dl class="fact-list"><div><dt>种类</dt><dd>${escapeHtml(pet.type)}</dd></div><div><dt>性别 / 年龄</dt><dd>${escapeHtml(pet.gender)} · ${escapeHtml(pet.age)}</dd></div><div><dt>所在地区</dt><dd>成都 · 猫狗小院</dd></div><div><dt>当前状态</dt><dd>${escapeHtml(pet.status)}</dd></div></dl>
         <div class="detail-block"><h3>健康情况</h3><p>${escapeHtml(pet.health)}</p></div>
@@ -916,7 +917,7 @@ function openPetDetail(id) {
         ${extra}${archive}
         <div class="modal-actions">${action}<button class="button button-ghost" data-contact-open>咨询管理员</button></div>
       </div>
-    </div>`, photoDrawer ? 'pet-drawer' : '');
+    </div>`, 'pet-drawer');
 }
 function openApplicationForm(id, kind) {
   const pet = petById(id);
@@ -2449,9 +2450,10 @@ window.addEventListener('popstate', () => {
   if (SITE_PAGE === 'admin') changeAdminTab(adminTabFromUrl(), false);
 });
 document.addEventListener('keydown', event => {
-  const petDrawer = $('.pet-photo-drawer');
-  if (event.key === 'Tab' && petDrawer) {
-    const focusable = $$('button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled])', petDrawer)
+  const modalBackdrop = $('#modalBackdrop');
+  const activeModal = modalBackdrop && !modalBackdrop.classList.contains('hidden') ? $('#modal') : null;
+  if (event.key === 'Tab' && activeModal) {
+    const focusable = $$('button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled])', activeModal)
       .filter(element => element.getClientRects().length > 0);
     const first = focusable[0];
     const last = focusable.at(-1);
@@ -2465,7 +2467,6 @@ document.addEventListener('keydown', event => {
     return;
   }
   if (event.key !== 'Escape') return;
-  const modalBackdrop = $('#modalBackdrop');
   const adminBackdrop = $('#adminBackdrop');
   if (modalBackdrop && !modalBackdrop.classList.contains('hidden')) {
     if (cropState) cancelPhotoCrop();
