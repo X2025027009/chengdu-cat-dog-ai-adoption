@@ -7,6 +7,15 @@ release/
 web/
 tools/env-migration/
 docs/previews/
+tmp/
+docs/build/
+docs/output/
+
+# 本地指令与过程记录保留原文；不纳入公开源码的格式检查。
+docs/*指令*.md
+docs/*下一轮任务*.md
+docs/*交接*.md
+docs/*交付报告*.md
 
 # 锁文件由 npm 生成，不该由格式化工具改写
 package-lock.json

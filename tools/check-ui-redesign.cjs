@@ -93,10 +93,10 @@ function checkSharedPage(name, html) {
 console.log('UI refresh structure checks (local files only)');
 const parsed = Object.fromEntries(pageNames.map(name => [name, checkSharedPage(name, files[name])]));
 const sectionPhotos = {
-  'pets.html': 'assets/real/courtyard-cat.png',
-  'match.html': 'assets/real/courtyard-brown-dog.png',
-  'adoption.html': 'assets/real/courtyard-white-dog.png',
-  'stories.html': 'assets/real/courtyard-black-dog.png',
+  'pets.html': 'assets/real/courtyard-cat.webp',
+  'match.html': 'assets/real/courtyard-brown-dog.webp',
+  'adoption.html': 'assets/real/courtyard-white-dog.webp',
+  'stories.html': 'assets/real/courtyard-black-dog.webp',
   'about.html': 'assets/real/courtyard-people-dogs.jpg'
 };
 for (const [page, asset] of Object.entries(sectionPhotos)) {
@@ -192,7 +192,7 @@ check(
 );
 const adminArt = byId(admin, 'adminTabArt');
 check('admin: tab illustration is present', adminArt?.name === 'img');
-for (const asset of ['admin-play-and-stretch.png', 'admin-cushion-peek.png', 'admin-walk-together.png', 'admin-settings-companions.png']) {
+for (const asset of ['admin-play-and-stretch.webp', 'admin-cushion-peek.webp', 'admin-walk-together.webp', 'admin-settings-companions.webp']) {
   check(`admin: ${asset} is mapped to a tab`, app.includes(`assets/brand/${asset}`) && fs.existsSync(path.join(root, 'assets/brand', asset)));
 }
 

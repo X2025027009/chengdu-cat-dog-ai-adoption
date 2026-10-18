@@ -15,6 +15,10 @@ export default [
   {
     ignores: [
       'node_modules/**',
+      // 本地会话证据与文档渲染过程文件不是站点源码或测试。
+      'tmp/**',
+      'docs/build/**',
+      'docs/output/**',
       'release/**',
       'web/**',
       'tools/env-migration/**',

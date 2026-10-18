@@ -36,6 +36,11 @@ DEPLOY-TEST.md
 AI技术方案.md
 赛事官方要求.md
 docs/*交接*.md
+docs/*指令*.md
+docs/*下一轮任务*.md
+docs/*交付报告*.md
+# 浏览器截图是本地过程材料，正式文档所用图表在 docs/figures/。
+docs/screenshots/
 
 # 修复前的云端函数源码留存：只作本地回滚参考，不进公开仓库
 .cloudfn-backup/
