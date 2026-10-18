@@ -70,6 +70,9 @@ const DEFAULT_PETS = [
 ];
 
 const APPLICATION_STATUSES = ['未处理', '沟通中', '已通过', '已登记', '等待宠物开放', '已通知', '已转为正式领养申请', '暂不考虑'];
+const SITE_PAGE = document.body.dataset.page || 'home';
+const LOCAL_REVIEW = window.YARD_LOCAL_REVIEW === true;
+const ADMIN_TABS = ['overview', 'pets', 'applications', 'settings'];
 // 本机保存「资料修改凭证」，方便同一台浏览器事后自行修改申请。
 const EDIT_TOKEN_KEY = 'cd-yard-edit-tokens';
 const EDIT_NOTICE_DISMISSED_KEY = 'cd-yard-edit-notice-dismissed';
@@ -93,6 +96,7 @@ let cloudApp = null;
 let cloudDb = null;
 let cloudMediaBucket = null;
 let adminAuthUser = null;
+let adminAccessGranted = false;
 let cloudApplications = null;
 // 企业微信机器人地址是私密配置：只有管理员能读，公开访客读不到这个 key。
 let cloudWecomWebhook = '';
@@ -119,6 +123,7 @@ function maskKey(value) {
   return text.length > 12 ? `${text.slice(0, 4)}••••••${text.slice(-4)}` : `${text.slice(0, 2)}••••`;
 }
 let filters = { status: '待领养', type: '全部' };
+const filterFeedbackTimers = new WeakMap();
 let adminTab = 'overview';
 let adminEditing = null;
 let returnFocus = null;
@@ -132,11 +137,32 @@ let cropQueueIndex = 0;
 let cropState = null;
 let publicApplicationAuthPromise = null;
 
-const $ = (selector, root = document) => root.querySelector(selector);
-const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
+const $ = (selector, root = document) => root?.querySelector(selector) || null;
+const $$ = (selector, root = document) => [...(root?.querySelectorAll(selector) || [])];
+function buttonFeedback(button, state, options) {
+  window.YardButtonFeedback?.setState(button, state, options);
+}
 const escapeHtml = (value = '') => String(value).replace(/[&<>'"]/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[char]));
 const petById = (id) => pets.find(pet => pet.id === id);
 const makeMediaId = () => `media-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+function adminTabFromUrl() {
+  const tab = new URL(window.location.href).searchParams.get('tab');
+  return ADMIN_TABS.includes(tab) ? tab : 'overview';
+}
+function changeAdminTab(tab, updateHistory = true) {
+  if (!ADMIN_TABS.includes(tab)) return;
+  resetPendingPhotoSelection();
+  adminEditing = null;
+  adminTab = tab;
+  if (SITE_PAGE === 'admin' && updateHistory) {
+    const url = new URL(window.location.href);
+    if (url.searchParams.get('tab') !== tab) {
+      url.searchParams.set('tab', tab);
+      window.history.pushState(null, '', `${url.pathname}${url.search}${url.hash}`);
+    }
+  }
+  renderAdmin();
+}
 function browserApplicationToken() {
   const key = 'cd-yard-application-browser-token';
   let token = localStorage.getItem(key);
@@ -214,7 +240,7 @@ function galleryStageMarkup(item, pet, index = 0) {
     if (isDirectVideo(item)) return `<video class="gallery-stage-media" controls playsinline preload="metadata" src="${escapeHtml(url)}" aria-label="${escapeHtml(pet.name)}的视频 ${index + 1}"></video>`;
     return `<div class="gallery-external"><strong>这是一条外部视频</strong><span>视频号、抖音或哔哩哔哩页面不能直接嵌入播放器，请在新窗口打开。</span><a class="button button-light" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">打开外部视频</a></div>`;
   }
-  return `<img class="gallery-stage-media" src="${escapeHtml(url)}" alt="${escapeHtml(pet.name)}的照片 ${index + 1}" />`;
+  return `<img loading="lazy" decoding="async" class="gallery-stage-media" src="${escapeHtml(url)}" alt="${escapeHtml(pet.name)}的照片 ${index + 1}" />`;
 }
 async function hydrateLocalMedia() {
   for (const pet of pets) {
@@ -251,6 +277,12 @@ async function activateLocalBackup() {
   renderAll();
 }
 async function loadCloudPublicData() {
+  if (LOCAL_REVIEW) {
+    cloudState = { ...cloudState, connected: false, checked: true, error: '' };
+    await activateLocalBackup();
+    renderAdminSyncNotice();
+    return;
+  }
   const config = window.YARD_CLOUD_CONFIG;
   if (!config?.env || !config?.accessKey || !window.cloudbase) {
     cloudState = { ...cloudState, checked: true, error: '云端组件未加载' };
@@ -323,6 +355,12 @@ function renderAdminSyncNotice() {
   if (!notice) return;
   const title = $('strong', notice);
   const copy = $('span', notice);
+  if (!title || !copy) return;
+  if (LOCAL_REVIEW) {
+    title.textContent = '本地审核';
+    copy.textContent = '当前只显示本机示例和草稿。编辑仅保存在这台浏览器，不连接云端，也不会同步到线上网站。';
+    return;
+  }
   if (!cloudState.checked) {
     title.textContent = '正在连接';
     copy.textContent = '正在读取 CloudBase 云端公开资料。网站会优先显示最新云端档案。';
@@ -351,7 +389,7 @@ function galleryMarkup(pet) {
     const label = item.type === 'video' ? (isDirectVideo(item) ? '视频' : '外部视频') : '照片';
     const preview = item.type === 'video'
       ? `<span class="video-thumb">${label}</span>`
-      : url ? `<img src="${escapeHtml(url)}" alt="" />` : `<span class="video-thumb media-missing">不可用</span>`;
+      : url ? `<img loading="lazy" decoding="async" src="${escapeHtml(url)}" alt="" />` : `<span class="video-thumb media-missing">不可用</span>`;
     return `<button class="gallery-thumb ${item === initial ? 'active' : ''}" type="button" data-gallery-pet="${escapeHtml(pet.id)}" data-gallery-index="${index}" aria-label="查看${escapeHtml(pet.name)}的${label} ${index + 1}" aria-pressed="${item === initial}">${preview}</button>`;
   }).join('');
   return `<div class="pet-gallery" data-gallery-root="${escapeHtml(pet.id)}"><div class="gallery-stage" data-gallery-stage>${stage}</div>${media.length > 1 ? `<div class="gallery-thumbs" aria-label="${escapeHtml(pet.name)}的影像列表">${thumbs}</div>` : ''}</div>`;
@@ -449,13 +487,13 @@ function renderFeaturedLoadingState() {
   const storyHeading = $('#storyFeatureHeading');
   const storyDescription = $('#storyFeatureDescription');
   const storyButton = $('#storyFeatureButton');
-  if (heroImage) { heroImage.removeAttribute('src'); heroImage.alt = '正在读取最新宠物档案'; }
+  if (heroImage) { heroImage.src = 'assets/brand/companions.png'; heroImage.alt = '正在读取最新宠物档案'; }
   if (heroStamp) heroStamp.textContent = '正在读取';
   if (heroStatus) heroStatus.textContent = '正在读取';
   if (heroName) heroName.textContent = '正在读取最新档案';
   if (heroDescription) heroDescription.textContent = '正在从小院云端更新宠物资料和影像。';
   if (heroButton) heroButton.hidden = true;
-  if (storyImage) { storyImage.removeAttribute('src'); storyImage.alt = '正在读取已领养生活档案'; }
+  if (storyImage) { storyImage.src = 'assets/brand/companions.png'; storyImage.alt = '正在读取已领养生活档案'; }
   if (storyLabel) storyLabel.textContent = '回访档案 · 正在读取';
   if (storyHeading) storyHeading.innerHTML = '正在读取新的生活档案。';
   if (storyDescription) storyDescription.textContent = '云端资料加载完成后，会在这里显示最新回访。';
@@ -543,6 +581,7 @@ function renderFeaturedPetCards(animate = false) {
 }
 function startFeaturedPetRotation() {
   if (featuredPetTimer) window.clearInterval(featuredPetTimer);
+  if (!$('.hero-feature') && !$('.story-grid')) return;
   featuredPetTimer = window.setInterval(() => {
     featuredPetIndexes = {
       hero: featuredPetIndexes.hero + 1,
@@ -554,6 +593,7 @@ function startFeaturedPetRotation() {
 
 function renderStats() {
   const stats = $('#stats');
+  if (!stats) return;
   if (publicDataSource === 'loading') {
     stats.innerHTML = '<div class="stat stat-loading" role="status"><strong>正在读取最新档案</strong><span>请稍候，正在连接小院云端。</span></div>';
     return;
@@ -569,6 +609,7 @@ function renderStats() {
 
 function renderContact() {
   const contact = $('#contactList');
+  if (!contact) return;
   if (publicDataSource === 'loading') {
     contact.innerHTML = '<div><dt>最新联系方式</dt><dd>正在从云端读取…</dd></div>';
     return;
@@ -583,6 +624,7 @@ function renderContact() {
 function renderPets() {
   const grid = $('#petGrid');
   const empty = $('#emptyState');
+  if (!grid || !empty) return;
   if (publicDataSource === 'loading') {
     grid.setAttribute('aria-busy', 'true');
     grid.innerHTML = '<div class="pet-loading" role="status"><strong>正在读取最新档案</strong><span>正在从小院云端更新宠物资料和影像。</span></div>';
@@ -595,26 +637,67 @@ function renderPets() {
     return statusMatches && typeMatches;
   });
   grid.setAttribute('aria-busy', 'false');
-  grid.innerHTML = matchingPets.map(pet => `
+  grid.innerHTML = matchingPets.map(petCardMarkup).join('');
+  empty.classList.toggle('hidden', matchingPets.length > 0);
+}
+
+function renderHomePets() {
+  const grid = $('#homePetsGrid');
+  const empty = $('#homePetsEmpty');
+  if (!grid || !empty) return;
+  if (publicDataSource === 'loading') {
+    grid.setAttribute('aria-busy', 'true');
+    grid.innerHTML = '<div class="pet-loading" role="status"><strong>正在读取最新档案</strong><span>小院的伙伴很快就会出现在这里。</span></div>';
+    empty.classList.add('hidden');
+    return;
+  }
+  const waitingPets = pets.filter(pet => pet.status === '待领养').slice(0, 3);
+  grid.setAttribute('aria-busy', 'false');
+  grid.innerHTML = waitingPets.map(petCardMarkup).join('');
+  empty.classList.toggle('hidden', waitingPets.length > 0);
+}
+
+function petCardMarkup(pet) {
+  return `
     <article class="pet-card">
-      <button class="pet-card-image" data-open-pet="${pet.id}" aria-label="查看${escapeHtml(pet.name)}的详情">
-        <img src="${escapeHtml(mediaUrl(coverMedia(pet)))}" alt="${escapeHtml(pet.name)}，${escapeHtml(pet.type)}照片" />
+      <button class="pet-card-image" data-open-pet="${escapeHtml(pet.id)}" aria-label="查看${escapeHtml(pet.name)}的详情">
+        <img loading="lazy" decoding="async" src="${escapeHtml(mediaUrl(coverMedia(pet)))}" alt="${escapeHtml(pet.name)}，${escapeHtml(pet.type)}照片" />
         <span class="status-pill ${statusClass(pet.status)}">${escapeHtml(pet.status)}</span>
       </button>
       <div class="pet-card-content">
         <div class="pet-card-top"><h3>${escapeHtml(pet.name)}</h3><span class="pet-card-meta">${escapeHtml(pet.type)} · ${escapeHtml(pet.gender)} · ${escapeHtml(pet.age)}</span></div>
         <p class="pet-card-description">${escapeHtml(pet.description)}</p>
         <div class="pet-tags">${pet.tags.map(tag => `<span>${escapeHtml(tag)}</span>`).join('')}</div>
-        <button class="card-action" data-open-pet="${pet.id}">${statusAction(pet.status)} <span aria-hidden="true">→</span></button>
+        <button class="card-action" data-open-pet="${escapeHtml(pet.id)}">${statusAction(pet.status)} <span aria-hidden="true">→</span></button>
       </div>
-    </article>`).join('');
-  empty.classList.toggle('hidden', matchingPets.length > 0);
+    </article>`;
 }
 
-function openModal(content) {
-  returnFocus = document.activeElement;
+function renderStories() {
+  const grid = $('#storiesGrid');
+  const empty = $('#storiesEmpty');
+  if (!grid || !empty) return;
+  if (publicDataSource === 'loading') {
+    grid.setAttribute('aria-busy', 'true');
+    grid.innerHTML = '<div class="pet-loading" role="status"><strong>正在读取生活档案</strong><span>照片、影像和回访记录正在更新。</span></div>';
+    empty.classList.add('hidden');
+    return;
+  }
+  const adoptedPets = pets.filter(pet => pet.status === '已领养');
+  grid.setAttribute('aria-busy', 'false');
+  grid.innerHTML = adoptedPets.map(petCardMarkup).join('');
+  empty.classList.toggle('hidden', adoptedPets.length > 0);
+}
+
+function openModal(content, presentation = '') {
   const backdrop = $('#modalBackdrop');
-  $('#modal').innerHTML = content;
+  const modal = $('#modal');
+  if (!backdrop || !modal) return;
+  if (backdrop.classList.contains('hidden')) returnFocus = document.activeElement;
+  backdrop.classList.toggle('pet-drawer-backdrop', presentation === 'pet-drawer');
+  modal.innerHTML = content;
+  modal.classList.toggle('form-dialog', Boolean($('.form-modal:not(.crop-modal)', modal)));
+  modal.scrollTop = 0;
   backdrop.classList.remove('hidden');
   backdrop.setAttribute('aria-hidden', 'false');
   document.body.classList.add('modal-open');
@@ -624,10 +707,16 @@ function closeModal() {
   cropState = null;
   cropQueue = [];
   cropQueueIndex = 0;
-  $('#modalBackdrop').classList.remove('crop-backdrop');
-  $('#modalBackdrop').classList.add('hidden');
-  $('#modalBackdrop').setAttribute('aria-hidden', 'true');
-  $('#modal').innerHTML = '';
+  const backdrop = $('#modalBackdrop');
+  backdrop?.classList.remove('crop-backdrop');
+  backdrop?.classList.remove('pet-drawer-backdrop');
+  backdrop?.classList.add('hidden');
+  backdrop?.setAttribute('aria-hidden', 'true');
+  const modal = $('#modal');
+  if (modal) {
+    modal.innerHTML = '';
+    modal.classList.remove('form-dialog');
+  }
   document.body.classList.remove('modal-open');
   returnFocus?.focus?.();
 }
@@ -811,6 +900,7 @@ function applyPhotoCrop() {
 function openPetDetail(id) {
   const pet = petById(id);
   if (!pet) return;
+  const closeButton = '<button class="modal-close" type="button" data-close-modal aria-label="关闭详情"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>';
   const updates = pet.updates?.length ? `<ul class="archive-updates">${pet.updates.map(update => `<li><strong>${escapeHtml(update.date)}</strong> · ${escapeHtml(update.text)}</li>`).join('')}</ul>` : '';
   const extra = pet.status === '暂不适合领养' ? `<div class="detail-block"><h3>当前说明</h3><p>${escapeHtml(pet.reason || statusDescription(pet.status))}</p></div>` : '';
   const archive = pet.status === '已领养' ? `<div class="detail-block"><h3>回访更新</h3>${updates || '<p>新的生活照片和回访记录会持续补充。</p>'}</div>` : '';
@@ -820,12 +910,10 @@ function openPetDetail(id) {
       ? `<button class="button button-primary" data-apply-pet="${pet.id}" data-application-kind="预约申请">预约领养</button>`
       : `<button class="button button-primary" data-scroll-updates>查看回访记录</button>`;
   openModal(`
-    <div class="modal-detail modal-detail-media">
-      <div class="modal-image">${galleryMarkup(pet)}<span class="status-pill ${statusClass(pet.status)}">${escapeHtml(pet.status)}</span></div>
+    <div class="modal-detail modal-detail-media pet-photo-drawer">
+      <div class="modal-image">${closeButton}${galleryMarkup(pet)}<span class="status-pill ${statusClass(pet.status)}">${escapeHtml(pet.status)}</span></div>
       <div class="modal-main">
-        <button class="modal-close" data-close-modal aria-label="关闭详情"><svg viewBox="0 0 24 24" fill="none"><path d="m6 6 12 12M18 6 6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
-        <p class="modal-overline">${escapeHtml(statusDescription(pet.status))} · ${mediaItems(pet).length} 个影像记录</p>
-        <h2 id="modalTitle">${escapeHtml(pet.name)}</h2>
+        <h2 id="modalTitle">${escapeHtml(pet.name)}</h2><p class="pet-drawer-context">${escapeHtml(statusDescription(pet.status))} · ${mediaItems(pet).length} 个影像记录</p>
         <p class="modal-description">${escapeHtml(pet.description)}</p>
         <dl class="fact-list"><div><dt>种类</dt><dd>${escapeHtml(pet.type)}</dd></div><div><dt>性别 / 年龄</dt><dd>${escapeHtml(pet.gender)} · ${escapeHtml(pet.age)}</dd></div><div><dt>所在地区</dt><dd>成都 · 猫狗小院</dd></div><div><dt>当前状态</dt><dd>${escapeHtml(pet.status)}</dd></div></dl>
         <div class="detail-block"><h3>健康情况</h3><p>${escapeHtml(pet.health)}</p></div>
@@ -833,7 +921,7 @@ function openPetDetail(id) {
         ${extra}${archive}
         <div class="modal-actions">${action}<button class="button button-ghost" data-contact-open>咨询管理员</button></div>
       </div>
-    </div>`);
+    </div>`, 'pet-drawer');
 }
 function openApplicationForm(id, kind) {
   const pet = petById(id);
@@ -873,7 +961,7 @@ function openContactModal() {
     return;
   }
   const qr = settings.wechatQrUrl
-    ? `<div class="contact-qr"><img src="${escapeHtml(settings.wechatQrUrl)}" alt="成都猫狗小院微信二维码" /><p>可保存或使用微信扫一扫识别二维码。</p></div>`
+    ? `<div class="contact-qr"><img loading="lazy" decoding="async" src="${escapeHtml(settings.wechatQrUrl)}" alt="成都猫狗小院微信二维码" /><p>可保存或使用微信扫一扫识别二维码。</p></div>`
     : '<p class="contact-qr-empty">管理员暂未上传微信二维码，可先通过电话或微信号咨询。</p>';
   openModal(`
     <div class="form-modal">
@@ -890,6 +978,7 @@ function openContactModal() {
 
 function toast(message) {
   const toastElement = $('#toast');
+  if (!toastElement) return;
   toastElement.textContent = message;
   toastElement.classList.remove('hidden');
   clearTimeout(window.toastTimer);
@@ -897,6 +986,7 @@ function toast(message) {
 }
 
 function openAdminLogin(message = '') {
+  if (LOCAL_REVIEW) { openAdmin(); return; }
   openModal(`
     <div class="form-modal admin-login-modal">
       <div class="form-modal-header"><div><h2 id="modalTitle">管理员登录</h2><p>请输入 CloudBase 用户名和密码。密码只在当前浏览器中使用，不会发送到聊天。</p></div><button class="modal-close" data-close-modal aria-label="关闭登录"><svg viewBox="0 0 24 24" fill="none"><path d="m6 6 12 12M18 6 6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button></div>
@@ -910,13 +1000,19 @@ async function getAdminUser() {
   return result?.data?.user || null;
 }
 async function ensureAdminAccess() {
-  if (!cloudState.connected || !cloudApp || !cloudDb) return true;
+  adminAccessGranted = false;
+  if (LOCAL_REVIEW) { adminAccessGranted = true; return true; }
+  if (!cloudState.connected || !cloudApp || !cloudDb) {
+    renderAdminAccessGate('管理员登录暂时不可用，请等待云端连接恢复后重试。');
+    return false;
+  }
   const user = await getAdminUser();
   if (!user) { openAdminLogin(); return false; }
   const authUid = user.id || user.uid || user.user_id || '';
   const adminRows = cloudRows(await cloudDb.from('yard_administrators').select('auth_uid,display_name').eq('auth_uid', authUid).limit(1), '检查管理员权限');
   if (!adminRows.length) { await cloudApp.auth().signOut(); openAdminLogin('当前账号还没有被登记为小院管理员。'); return false; }
   adminAuthUser = { ...user, uid: authUid, ...adminRows[0] };
+  adminAccessGranted = true;
   return true;
 }
 async function loadCloudAdminData() {
@@ -970,19 +1066,27 @@ function wecomStatusHint() {
     : `<span class="form-hint wecom-status is-error">最近一次提醒：发送失败${when}${cloudWecomStatus.reason ? ` 原因：${escapeHtml(cloudWecomStatus.reason)}` : ''}</span>`;
 }
 async function openAdmin() {
+  const backdrop = $('#adminBackdrop');
+  if (!backdrop) { window.location.assign('admin.html'); return; }
   returnFocus = document.activeElement;
-  if (!(await ensureAdminAccess())) return;
-  $('#adminBackdrop').classList.remove('hidden');
-  $('#adminBackdrop').setAttribute('aria-hidden', 'false');
-  document.body.classList.add('modal-open');
-  await loadCloudAdminData();
-  await loadAdminPrivateSettings();
-  renderAdmin();
-  setTimeout(() => $('.admin-nav-button.active')?.focus(), 10);
+  renderAdminAccessGate();
+  try {
+    if (!(await ensureAdminAccess())) return;
+    backdrop.classList.remove('hidden');
+    backdrop.setAttribute('aria-hidden', 'false');
+    if (SITE_PAGE !== 'admin') document.body.classList.add('modal-open');
+    await loadCloudAdminData();
+    await loadAdminPrivateSettings();
+    renderAdmin();
+  } catch (error) {
+    adminAccessGranted = false;
+    renderAdminAccessGate(error.message || '暂时无法验证管理员身份，请稍后重试。');
+  }
 }
 function closeAdmin() {
-  $('#adminBackdrop').classList.add('hidden');
-  $('#adminBackdrop').setAttribute('aria-hidden', 'true');
+  if (SITE_PAGE === 'admin') return;
+  $('#adminBackdrop')?.classList.add('hidden');
+  $('#adminBackdrop')?.setAttribute('aria-hidden', 'true');
   document.body.classList.remove('modal-open');
   returnFocus?.focus?.();
 }
@@ -990,9 +1094,35 @@ function closeAdmin() {
 function adminPageHead(title, copy, action = '') {
   return `<div class="admin-page-head"><div><h3>${title}</h3><p>${copy}</p></div>${action}</div>`;
 }
-function renderAdmin() {
-  $$('.admin-nav-button').forEach(button => button.classList.toggle('active', button.dataset.adminTab === adminTab));
+function renderAdminAccessGate(message = '') {
   const content = $('#adminContent');
+  if (!content) return;
+  const checking = !cloudState.checked && !LOCAL_REVIEW;
+  content.innerHTML = `${adminPageHead(checking ? '正在验证管理员入口' : '登录管理员工作台', '宠物编辑、申请记录和网站设置仅向管理员开放。')}
+    ${message ? `<p class="admin-login-error" role="alert">${escapeHtml(message)}</p>` : ''}
+    ${checking ? '<p class="form-hint" role="status">正在连接小院服务，请稍候。</p>' : '<button class="button button-primary" type="button" data-admin-login>管理员登录</button>'}`;
+  renderAdminSyncNotice();
+}
+function renderAdmin() {
+  const content = $('#adminContent');
+  if (!content) return;
+  const art = $('#adminTabArt');
+  if (art) {
+    const artwork = {
+      overview: 'assets/brand/admin-play-and-stretch.png',
+      pets: 'assets/brand/admin-cushion-peek.png',
+      applications: 'assets/brand/admin-walk-together.png',
+      settings: 'assets/brand/admin-settings-companions.png'
+    };
+    art.src = artwork[adminTab];
+  }
+  if (!adminAccessGranted) { renderAdminAccessGate(); return; }
+  $$('.admin-nav-button').forEach(button => {
+    const active = button.dataset.adminTab === adminTab;
+    button.classList.toggle('active', active);
+    if (active) button.setAttribute('aria-current', 'page');
+    else button.removeAttribute('aria-current');
+  });
   if (adminTab === 'overview') content.innerHTML = renderAdminOverview();
   if (adminTab === 'pets') content.innerHTML = renderAdminPets();
   if (adminTab === 'applications') content.innerHTML = renderAdminApplications();
@@ -1014,11 +1144,11 @@ function renderAdminOverview() {
       <div class="dashboard-stat"><strong>${paused}</strong><span>暂不适合领养</span></div>
       <div class="dashboard-stat"><strong>${openApps}</strong><span>待处理申请</span></div>
     </div>
-    <div class="admin-block"><h4>最近提交的申请</h4>${recent.length ? `<div class="mini-list">${recent.map(app => `<div class="mini-list-row"><img src="${escapeHtml(mediaUrl(coverMedia(petById(app.petId) || DEFAULT_PETS[0])))}" alt="" /><div><strong>${escapeHtml(app.name)} · ${escapeHtml(app.kind)}</strong><p>${escapeHtml(app.petName)} · ${escapeHtml(app.contact)}</p></div><span>${escapeHtml(app.status)}</span></div>`).join('')}</div><button class="admin-edit application-inbox-link" type="button" data-open-applications>查看并处理全部申请</button>` : '<div class="admin-empty">还没有申请记录。访客提交的领养或预约申请会显示在这里。</div>'}</div>`;
+    <div class="admin-block"><h4>最近提交的申请</h4>${recent.length ? `<div class="mini-list">${recent.map(app => `<div class="mini-list-row"><img loading="lazy" decoding="async" src="${escapeHtml(mediaUrl(coverMedia(petById(app.petId) || DEFAULT_PETS[0])))}" alt="" /><div><strong>${escapeHtml(app.name)} · ${escapeHtml(app.kind)}</strong><p>${escapeHtml(app.petName)} · ${escapeHtml(app.contact)}</p></div><span>${escapeHtml(app.status)}</span></div>`).join('')}</div><button class="admin-edit application-inbox-link" type="button" data-open-applications>查看并处理全部申请</button>` : '<div class="admin-empty">还没有申请记录。访客提交的领养或预约申请会显示在这里。</div>'}</div>`;
 }
 function renderAdminPets() {
   const editPet = adminEditing === 'new' ? { id: '', name: '', type: '猫咪', status: '待领养', age: '', gender: '母', image: '', video: '', tags: [], description: '', health: '', requirements: '默认领养要求：稳定住所、家庭成员同意、做好安全防护、接受后续回访。', reason: '', updates: [] } : petById(adminEditing);
-  const rows = pets.map(pet => `<div class="admin-row"><img src="${escapeHtml(mediaUrl(coverMedia(pet)))}" alt="" /><div><strong>${escapeHtml(pet.name)}</strong><p>${escapeHtml(pet.type)} · ${escapeHtml(pet.gender)} · ${escapeHtml(pet.age)}</p></div><select data-pet-status="${pet.id}">${['待领养','已领养','暂不适合领养'].map(status => `<option ${pet.status === status ? 'selected' : ''}>${status}</option>`).join('')}</select><span class="status-pill ${statusClass(pet.status)}" style="position:static;justify-self:start">${escapeHtml(pet.status)}</span><div class="admin-row-actions"><button class="admin-edit" data-edit-pet="${pet.id}">编辑</button><button class="admin-delete" type="button" data-delete-pet="${pet.id}">删除档案</button></div></div>`).join('');
+  const rows = pets.map(pet => `<div class="admin-row"><img loading="lazy" decoding="async" src="${escapeHtml(mediaUrl(coverMedia(pet)))}" alt="" /><div><strong>${escapeHtml(pet.name)}</strong><p>${escapeHtml(pet.type)} · ${escapeHtml(pet.gender)} · ${escapeHtml(pet.age)}</p></div><select data-pet-status="${pet.id}">${['待领养','已领养','暂不适合领养'].map(status => `<option ${pet.status === status ? 'selected' : ''}>${status}</option>`).join('')}</select><span class="status-pill ${statusClass(pet.status)}" style="position:static;justify-self:start">${escapeHtml(pet.status)}</span><div class="admin-row-actions"><button class="admin-edit" data-edit-pet="${pet.id}">编辑</button><button class="admin-delete" type="button" data-delete-pet="${pet.id}">删除档案</button></div></div>`).join('');
   return `${adminPageHead('宠物档案', '添加、编辑或删除档案，管理照片、视频、领养状态及每只宠物的单独要求。', '<button class="admin-primary" data-new-pet>添加宠物</button>')}
     <div class="admin-table">${rows || '<div class="admin-empty">还没有宠物档案。</div>'}</div>
     ${editPet ? renderPetEditor(editPet) : ''}`;
@@ -1032,7 +1162,7 @@ function renderExistingMediaManager(pet) {
     const isImage = item.type === 'image';
     const typeLabel = isImage ? '照片' : isDirectVideo(item) ? '视频' : '外部视频';
     const preview = isImage && url
-      ? `<img src="${escapeHtml(url)}" alt="${escapeHtml(pet.name)}的${typeLabel} ${index + 1}" />`
+      ? `<img loading="lazy" decoding="async" src="${escapeHtml(url)}" alt="${escapeHtml(pet.name)}的${typeLabel} ${index + 1}" />`
       : `<span class="media-manager-type">${typeLabel}</span>`;
     const caption = item.caption || `${typeLabel} ${index + 1}`;
     const coverChoice = isImage ? `<label class="media-cover-choice"><input type="radio" name="coverMediaId" value="${escapeHtml(item.id)}" ${item.id === currentCover.id ? 'checked' : ''} /><span>设为封面</span></label>` : '';
@@ -1202,15 +1332,17 @@ function renderAdminApplications() {
       </form>
     </article>`;
   }).join('');
-  const stateNotice = Array.isArray(cloudApplications)
-    ? '这里显示的是云端申请资料；修改状态或内部备注后会同步到云端。'
-    : '暂时未能读取云端申请资料；当前显示本浏览器中的申请记录。';
+  const stateNotice = window.YARD_LOCAL_REVIEW
+    ? '本地审核预览：只显示本浏览器中的示例与草稿，不连接云端。'
+    : Array.isArray(cloudApplications)
+      ? '这里显示的是云端申请资料；修改状态或内部备注后会同步到云端。'
+      : '暂时未能读取云端申请资料；当前显示本浏览器中的申请记录。';
   return `${adminPageHead('申请记录', stateNotice)}
     <div class="application-list">${rows || '<div class="admin-empty">还没有申请记录。访客提交表单后会出现在这里。</div>'}</div>`;
 }
 function renderAdminSettings() {
   const qrPreview = settings.wechatQrUrl
-    ? `<div class="settings-qr-preview"><img src="${escapeHtml(settings.wechatQrUrl)}" alt="当前微信二维码" /><div><strong>当前微信二维码</strong><span>更换二维码后，保存网站设置才会生效。</span><label class="settings-qr-remove"><input type="checkbox" name="removeWechatQr" /> 删除当前二维码</label></div></div>`
+    ? `<div class="settings-qr-preview"><img loading="lazy" decoding="async" src="${escapeHtml(settings.wechatQrUrl)}" alt="当前微信二维码" /><div><strong>当前微信二维码</strong><span>更换二维码后，保存网站设置才会生效。</span><label class="settings-qr-remove"><input type="checkbox" name="removeWechatQr" /> 删除当前二维码</label></div></div>`
     : '<p class="form-hint settings-qr-empty">暂未上传微信二维码。上传后会显示在访客的“查看咨询方式”弹窗中。</p>';
   return `${adminPageHead('网站设置', '修改公开显示的联系方式、所在区域和首页说明。')}
     <form id="settingsForm" class="settings-form">
@@ -1221,7 +1353,7 @@ function renderAdminSettings() {
         <div class="field"><label>所在区域</label><input name="area" value="${escapeHtml(settings.area)}" /></div>
         <div class="field full"><label for="wechatQrFile">微信二维码</label><input id="wechatQrFile" type="file" accept="image/jpeg,image/png,image/webp" /><span class="form-hint">支持 JPG、PNG、WebP，单张不超过 8 MB。二维码会在保存网站设置后公开显示。</span>${qrPreview}</div>
         <div class="field full"><label>首页简介</label><textarea name="intro">${escapeHtml(settings.intro)}</textarea></div>
-        <div class="field full"><label for="wecomWebhook">企业微信机器人地址</label><input id="wecomWebhook" name="wecomWebhook" value="${escapeHtml(cloudWecomWebhook)}" placeholder="https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=..." autocomplete="off" /><span class="form-hint">在企业微信群里点「群机器人 → 添加机器人」，把拿到的 Webhook 地址粘贴到这里。保存后，下一位访客提交申请时群里就会收到提醒。提醒只包含宠物、类型和时间，不会发送申请人姓名、电话、住址等隐私。留空表示关闭提醒。</span>${wecomStatusHint()}</div>
+        <div class="field full"><label for="wecomWebhook">企业微信机器人地址</label><input id="wecomWebhook" name="wecomWebhook" value="${escapeHtml(cloudWecomWebhook)}" placeholder="https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=..." autocomplete="off" /><span class="form-hint">在企业微信群里点「群机器人 → 添加机器人」，把拿到的 Webhook 地址粘贴到这里。保存后，新申请会推送宠物、类型、时间及申请人填写的资料，供负责人联系审核。接收群须限制为有权处理申请的人员；内部备注、来源哈希与修改令牌不会推送。留空表示关闭提醒。</span>${wecomStatusHint()}</div>
         <div class="field full"><label for="aiApiKey">AI 模型 API Key（DeepSeek）</label><input id="aiApiKey" name="aiApiKey" placeholder="${cloudAiKey.configured ? '如需更换请填入新的 Key，留空表示保持现状' : 'sk-...'}" autocomplete="off" /><span class="form-hint ${cloudAiKey.configured ? 'ai-key-status is-ok' : 'ai-key-status'}">${cloudAiKey.configured ? `已配置（${escapeHtml(cloudAiKey.hint)}）：AI 匹配助手使用真实模型。` : '尚未配置：AI 匹配助手运行在演示模式，回复由内置示例生成，不会调用真实模型。'}出于安全考虑不回显完整密钥，填入新值即视为替换。该密钥只保存在管理员专属设置中，匿名访客读不到，也不会出现在任何前端代码或仓库里。</span></div>
         <div class="field full"><label for="tokenhubApiKey">腾讯云 TokenHub API Key（向量检索与图像理解）</label><input id="tokenhubApiKey" name="tokenhubApiKey" placeholder="${cloudTokenhubKey.configured ? '如需更换请填入新的 Key，留空表示保持现状' : '在 TokenHub 控制台「API Key 管理」创建'}" autocomplete="off" /><span class="form-hint ${cloudTokenhubKey.configured ? 'ai-key-status is-ok' : 'ai-key-status'}">${cloudTokenhubKey.configured ? `已配置（${escapeHtml(cloudTokenhubKey.hint)}）：可按档案语义检索、可用照片搜宠物。` : '尚未配置：宠物检索暂时只能靠关键词匹配，也不能用照片搜宠物。'}用于把宠物档案、领养政策、回访记录转换成向量以便按意思检索，以及把照片转换成向量做「以图搜宠」。与上面的对话 Key 互不影响，各自独立保存。同样不回显完整密钥。</span></div>
         <div class="field full"><label>AI 配置自检</label><button class="admin-edit" type="button" data-diagnose-ai>检查 AI 配置</button><span class="form-hint">换完 Key 之后点一下：检查两个 Key 是否可用、向量模型的维度与语义方向是否正确。<strong>不会显示密钥内容</strong>，测试用的是固定字符串，不涉及任何申请人数据。</span><div class="ai-diagnose-result" data-diagnose-result hidden></div></div>
@@ -1280,8 +1412,7 @@ function bindAdminEvents() {
   }));
   $('#petEditForm')?.addEventListener('submit', handlePetSave);
   $('[data-open-applications]')?.addEventListener('click', () => {
-    adminTab = 'applications';
-    renderAdmin();
+    changeAdminTab('applications');
   });
   $$('[data-application-form]').forEach(form => form.addEventListener('submit', async event => {
     event.preventDefault();
@@ -1298,8 +1429,10 @@ function bindAdminEvents() {
     catch (error) { toast(error.message); return; }
     const changedFields = Object.keys(applicantEdits.patch);
     const button = $('button[type="submit"]', form);
+    if (button?.disabled) return;
     const previousLabel = button?.textContent;
     if (button) { button.disabled = true; button.textContent = '正在保存…'; }
+    buttonFeedback(button, 'loading');
     try {
       if (Array.isArray(cloudApplications) && cloudDb && adminAuthUser) {
         const patch = {
@@ -1334,10 +1467,12 @@ function bindAdminEvents() {
         saveApplications();
       }
       renderStats();
+      buttonFeedback(button, 'success');
       toast(changedFields.length
         ? '处理结果与申请人资料都已保存'
         : (Array.isArray(cloudApplications) ? '申请处理结果已同步到云端' : '申请处理结果已保存到本地'));
     } catch (error) {
+      buttonFeedback(button, 'error');
       toast(error.message || '申请处理结果保存失败，请稍后重试。');
     } finally {
       if (button) { button.disabled = false; button.textContent = previousLabel || '保存处理结果'; }
@@ -1453,8 +1588,10 @@ async function saveWebsiteSettings(event) {
     return;
   }
   const button = $('button[type="submit"]', form);
+  if (button?.disabled) return;
   const previousLabel = button?.textContent;
   if (button) { button.disabled = true; button.textContent = '正在保存…'; }
+  buttonFeedback(button, 'loading');
   let nextSettings = {
     ...settings,
     phone: String(new FormData(form).get('phone') || '').trim(),
@@ -1501,6 +1638,8 @@ async function saveWebsiteSettings(event) {
       catch (error) { toast('联系方式已保存，但旧二维码暂未清理。请稍后重新保存一次。'); }
     }
     renderAdmin();
+    const incomplete = (shouldSaveWebhook && !webhookSaved) || (shouldSaveAiKey && !aiKeySaved) || (shouldSaveTokenhubKey && !tokenhubKeySaved);
+    buttonFeedback($('#settingsForm button[type="submit"]'), incomplete ? 'error' : 'success');
     if (shouldSaveWebhook && !webhookSaved) {
       toast('网站设置已保存，但企业微信机器人地址没能写入云端，请连接云端后重新保存一次。');
     } else if (shouldSaveAiKey && !aiKeySaved) {
@@ -1517,6 +1656,7 @@ async function saveWebsiteSettings(event) {
     else if (webhookSaved) toast('网站设置已保存，企业微信提醒已开启');
     else toast(cloudSaved ? '联系方式和二维码已同步到云端' : '联系方式和二维码已保存到本地');
   } catch (error) {
+    buttonFeedback(button, 'error');
     if (replacementQr?.wechatQrPath && cloudMediaBucket) {
       await cloudMediaBucket.remove([replacementQr.wechatQrPath]);
     }
@@ -1526,6 +1666,8 @@ async function saveWebsiteSettings(event) {
     }
     toast(error.message || '网站设置保存失败，请稍后重试。');
   } finally {
+    // 成功时后台表单已重建；清理旧按钮的 loading，不影响新按钮的结果提示。
+    if (button?.dataset.feedbackState === 'loading') buttonFeedback(button, 'idle');
     if (button) { button.disabled = false; button.textContent = previousLabel || '保存网站设置'; }
   }
 }
@@ -1623,7 +1765,8 @@ async function deletePetFromLocal(pet) {
     if (item.url?.startsWith('blob:')) URL.revokeObjectURL(item.url);
   }));
 }
-async function handlePetDelete(id) {
+async function handlePetDelete(id, button) {
+  if (button?.disabled) return;
   const pet = petById(id);
   if (!pet) return;
   const relatedApplications = adminApplications().filter(application => application.petId === pet.id);
@@ -1637,6 +1780,8 @@ async function handlePetDelete(id) {
     : '';
   const confirmed = window.confirm(`确定删除“${pet.name}”的宠物档案吗？\n\n这会同时移除公开资料、照片、视频和回访记录。此操作不能撤销。${applicationWarning}`);
   if (!confirmed) return;
+  if (button) button.disabled = true;
+  buttonFeedback(button, 'loading');
   try {
     const cloudResult = await deletePetFromCloud(pet);
     await deletePetFromLocal(pet);
@@ -1648,10 +1793,14 @@ async function handlePetDelete(id) {
     if (adminEditing === pet.id) adminEditing = null;
     renderAll();
     renderAdmin();
+    buttonFeedback(button, 'success');
     const applicationNote = relatedApplications.length ? `，以及 ${relatedApplications.length} 条关联申请` : '';
     toast(cloudResult ? `${pet.name} 的档案、云端媒体${applicationNote}已删除` : `${pet.name} 的档案${applicationNote}已从本地删除`);
   } catch (error) {
+    buttonFeedback(button, 'error');
     toast(error.message || '宠物档案删除失败，请稍后重试。');
+  } finally {
+    if (button) button.disabled = false;
   }
 }
 /**
@@ -1708,9 +1857,11 @@ function renderApplicationSummary(container, result) {
   container.innerHTML = html;
 }
 async function handleApplicationSummarize(id, button) {
+  if (button?.disabled) return;
   const container = $(`[data-ai-summary-for="${id}"]`);
   const previous = button?.textContent;
   if (button) { button.disabled = true; button.textContent = '生成中…'; }
+  buttonFeedback(button, 'loading');
   try {
     // 已有摘要时带上 force：管理员点"重新生成"就是要重算，
     // 不该拿缓存把这次点击挡回去
@@ -1724,8 +1875,10 @@ async function handleApplicationSummarize(id, button) {
       application.aiSummaryStale = false;
     }
     $('[data-ai-summary-stale]')?.remove();
+    buttonFeedback(button, 'success');
     toast(result.cached ? '已读取上次生成的摘要' : '摘要已保存，下次打开不用重新生成');
   } catch (error) {
+    buttonFeedback(button, 'error');
     if (container) {
       container.hidden = false;
       container.innerHTML = `<p class="ai-summary-caution">生成摘要失败：${escapeHtml(error.message || '请稍后重试')}</p>`;
@@ -1779,14 +1932,18 @@ function renderDiagnoseResult(container, report) {
     </ul>`;
 }
 async function handleDiagnoseAi(button) {
+  if (button?.disabled) return;
   const container = $('[data-diagnose-result]');
   const previous = button?.textContent;
   if (button) { button.disabled = true; button.textContent = '检查中…'; }
+  buttonFeedback(button, 'loading');
   try {
     const result = await callYardApi({ action: 'admin.ai.diagnose' });
     if (result?.ok !== true) throw new Error(result?.message || '自检失败。');
     renderDiagnoseResult(container, result);
+    buttonFeedback(button, 'success');
   } catch (error) {
+    buttonFeedback(button, 'error');
     if (container) {
       container.hidden = false;
       container.innerHTML = `<p class="ai-summary-caution">自检失败：${escapeHtml(error.message || '请稍后重试')}</p>`;
@@ -1824,6 +1981,7 @@ function downscaleImageToDataUrl(file, maxSize = 768) {
 }
 
 async function handleDescribePhoto(button) {
+  if (button?.disabled) return;
   const file = $('#petCoverFile')?.files?.[0];
   if (!file) {
     toast('请先选择封面照片，再点「用封面照片自动写一段」。');
@@ -1834,6 +1992,7 @@ async function handleDescribePhoto(button) {
   const previous = button.textContent;
   button.disabled = true;
   button.textContent = '正在读照片…';
+  buttonFeedback(button, 'loading');
   try {
     const image = await downscaleImageToDataUrl(file);
     const species = form?.querySelector('select[name="petType"]')?.value || '';
@@ -1843,8 +2002,10 @@ async function handleDescribePhoto(button) {
       textarea.value = result.description;
       textarea.focus();
     }
+    buttonFeedback(button, 'success');
     toast('已写入描述，请按实际情况修改后再保存');
   } catch (error) {
+    buttonFeedback(button, 'error');
     toast(error.message || '识别失败，请稍后重试。');
   } finally {
     button.disabled = false;
@@ -1852,12 +2013,15 @@ async function handleDescribePhoto(button) {
   }
 }
 
-async function handleApplicationDelete(id) {
+async function handleApplicationDelete(id, button) {
+  if (button?.disabled) return;
   const application = adminApplications().find(item => item.id === id);
   if (!application) { toast('没有找到这条申请，请刷新管理员后台后重试。'); return; }
   const petName = application.petName || petById(application.petId)?.name || '对应宠物';
   const confirmed = window.confirm(`确定删除“${application.name}”提交给“${petName}”的申请吗？\n\n申请资料、内部备注和处理历史都会被删除，且无法恢复。`);
   if (!confirmed) return;
+  if (button) button.disabled = true;
+  buttonFeedback(button, 'loading');
   try {
     const isCloudInbox = Array.isArray(cloudApplications);
     if (cloudState.connected && adminAuthUser && !isCloudInbox) {
@@ -1874,14 +2038,23 @@ async function handleApplicationDelete(id) {
     saveApplications();
     renderStats();
     renderAdmin();
+    buttonFeedback(button, 'success');
     toast(isCloudInbox ? '申请记录已删除' : '申请记录已从本地删除');
   } catch (error) {
+    buttonFeedback(button, 'error');
     toast(error.message || '申请记录删除失败，请稍后重试。');
+  } finally {
+    if (button) button.disabled = false;
   }
 }
 async function handlePetSave(event) {
   event.preventDefault();
   const form = event.currentTarget;
+  const button = $('button[type="submit"]', form);
+  if (button?.disabled) return;
+  const previousLabel = button?.textContent;
+  if (button) { button.disabled = true; button.textContent = '正在保存…'; }
+  buttonFeedback(button, 'loading');
   const formData = new FormData(form);
   const data = Object.fromEntries(formData);
   const id = form.dataset.petId;
@@ -1908,6 +2081,7 @@ async function handlePetSave(event) {
     const uploadedGalleryCover = galleryUploads.find(item => item.type === 'image');
     const cover = coverUpload[0] || linkedCover || selectedExistingCover || fallbackExistingCover || uploadedGalleryCover;
     if (!cover) {
+      buttonFeedback(button, 'error');
       toast('请至少保留一张照片，或上传一张新的封面照片');
       return;
     }
@@ -1945,22 +2119,37 @@ async function handlePetSave(event) {
     }));
     pendingCoverFile = null;
     pendingGalleryFiles = [];
+    buttonFeedback(button, 'success');
     adminEditing = null; renderAll(); renderAdmin(); toast(cloudSaved ? (id ? '宠物档案和影像记录已同步到云端' : '新的宠物档案已同步到云端') : (id ? '宠物档案和影像记录已保存到本地' : '新的宠物档案已保存到本地'));
   } catch (error) {
+    buttonFeedback(button, 'error');
     toast(error.message || '部分文件无法读取，请检查图片或视频格式和大小');
+  } finally {
+    if (button) { button.disabled = false; button.textContent = previousLabel || '保存档案'; }
   }
 }
 function renderAll() {
   document.body.classList.toggle('public-data-loading', publicDataSource === 'loading');
-  renderFeaturedPetCards(); renderStats(); renderContact(); renderPets();
+  renderFeaturedPetCards(); renderStats(); renderContact(); renderPets(); renderHomePets(); renderStories();
 }
 
 function setFilter(group, value) {
+  const changed = filters[group] !== value;
   filters[group] = value;
   $$(`[data-filter="${group}"]`).forEach(button => {
     const isActive = button.dataset.value === value;
     button.classList.toggle('active', isActive);
     button.setAttribute('aria-pressed', String(isActive));
+    clearTimeout(filterFeedbackTimers.get(button));
+    filterFeedbackTimers.delete(button);
+    button.classList.remove('feedback-selected');
+    if (changed && isActive) {
+      button.classList.add('feedback-selected');
+      filterFeedbackTimers.set(button, setTimeout(() => {
+        button.classList.remove('feedback-selected');
+        filterFeedbackTimers.delete(button);
+      }, 260));
+    }
   });
   renderPets();
 }
@@ -1982,11 +2171,16 @@ document.addEventListener('click', event => {
   if (applyTarget) { openApplicationForm(applyTarget.dataset.applyPet, applyTarget.dataset.applicationKind); return; }
   if (event.target.closest('[data-close-modal]')) { closeModal(); return; }
   if (event.target.closest('[data-contact-open]')) { openContactModal(); return; }
-  if (event.target.closest('[data-scroll-updates]')) { closeModal(); document.querySelector('#stories')?.scrollIntoView({ behavior: 'smooth' }); return; }
+  if (event.target.closest('[data-scroll-updates]')) {
+    closeModal();
+    if (SITE_PAGE === 'stories') $('#storiesGrid')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    else window.location.assign('stories.html');
+    return;
+  }
   const filterButton = event.target.closest('[data-filter]');
   if (filterButton) { setFilter(filterButton.dataset.filter, filterButton.dataset.value); return; }
   const deleteApplicationButton = event.target.closest('[data-delete-application]');
-  if (deleteApplicationButton) { handleApplicationDelete(deleteApplicationButton.dataset.deleteApplication); return; }
+  if (deleteApplicationButton) { handleApplicationDelete(deleteApplicationButton.dataset.deleteApplication, deleteApplicationButton); return; }
   const summarizeButton = event.target.closest('[data-summarize-application]');
   if (summarizeButton) { handleApplicationSummarize(summarizeButton.dataset.summarizeApplication, summarizeButton); return; }
   if (event.target.closest('[data-diagnose-ai]')) { handleDiagnoseAi(event.target.closest('[data-diagnose-ai]')); return; }
@@ -1999,8 +2193,8 @@ document.addEventListener('click', event => {
     return;
   }
   const deletePetButton = event.target.closest('[data-delete-pet]');
-  if (deletePetButton) { handlePetDelete(deletePetButton.dataset.deletePet); return; }
-  if (event.target.closest('#adminButton, #footerAdmin')) { openAdmin(); return; }
+  if (deletePetButton) { handlePetDelete(deletePetButton.dataset.deletePet, deletePetButton); return; }
+  if (event.target.closest('[data-admin-login]')) { openAdmin(); return; }
   if (event.target.closest('#footerEditApplication')) { openMyApplicationEditor(); return; }
   if (event.target.closest('[data-open-my-application]')) { openMyApplicationEditor(); return; }
   if (event.target.closest('[data-dismiss-applicant-notice]')) { dismissApplicantEditBanner(); return; }
@@ -2010,32 +2204,40 @@ document.addEventListener('click', event => {
   if (event.target.closest('#closeAdmin')) { resetPendingPhotoSelection(); closeAdmin(); return; }
   const adminTabButton = event.target.closest('[data-admin-tab]');
   if (adminTabButton) {
-    resetPendingPhotoSelection();
-    adminTab = adminTabButton.dataset.adminTab;
-    adminEditing = null;
-    renderAdmin();
+    event.preventDefault();
+    if (!adminAccessGranted) { openAdmin(); return; }
+    changeAdminTab(adminTabButton.dataset.adminTab);
   }
 });
 
-$('#modalBackdrop').addEventListener('click', event => { if (event.target === $('#modalBackdrop')) { if (cropState) cancelPhotoCrop(); else closeModal(); } });
-$('#adminBackdrop').addEventListener('click', event => { if (event.target === $('#adminBackdrop')) closeAdmin(); });
+$('#modalBackdrop')?.addEventListener('click', event => { if (event.target === $('#modalBackdrop')) { if (cropState) cancelPhotoCrop(); else closeModal(); } });
+$('#adminBackdrop')?.addEventListener('click', event => { if (SITE_PAGE !== 'admin' && event.target === $('#adminBackdrop')) closeAdmin(); });
 
 document.addEventListener('submit', async event => {
   if (event.target.id !== 'adminLoginForm') return;
   event.preventDefault();
+  if (LOCAL_REVIEW) { closeModal(); await openAdmin(); return; }
   const form = event.target;
   const data = Object.fromEntries(new FormData(form));
   if (!cloudApp) { openAdminLogin('云端登录组件尚未加载，请刷新页面后重试。'); return; }
-  const result = await cloudApp.auth().signInWithPassword({ username: String(data.username || '').trim(), password: String(data.password || '') });
-  if (result?.error) { openAdminLogin(result.error.message || '用户名或密码不正确。'); return; }
-  if (!(await ensureAdminAccess())) return;
-  closeModal();
-  await loadCloudAdminData();
-  $('#adminBackdrop').classList.remove('hidden');
-  $('#adminBackdrop').setAttribute('aria-hidden', 'false');
-  document.body.classList.add('modal-open');
-  renderAdmin();
-  setTimeout(() => $('.admin-nav-button.active')?.focus(), 10);
+  const button = $('button[type="submit"]', form);
+  if (button?.disabled) return;
+  const previousLabel = button?.textContent;
+  if (button) { button.disabled = true; button.textContent = '正在登录…'; }
+  buttonFeedback(button, 'loading');
+  try {
+    const result = await cloudApp.auth().signInWithPassword({ username: String(data.username || '').trim(), password: String(data.password || '') });
+    if (result?.error) { buttonFeedback(button, 'error'); openAdminLogin(result.error.message || '用户名或密码不正确。'); return; }
+    if (!(await ensureAdminAccess())) { buttonFeedback(button, 'error'); return; }
+    buttonFeedback(button, 'success');
+    closeModal();
+    await openAdmin();
+  } catch (error) {
+    buttonFeedback(button, 'error');
+    openAdminLogin(error.message || '登录暂时不可用，请稍后重试。');
+  } finally {
+    if (button) { button.disabled = false; button.textContent = previousLabel || '登录管理员后台'; }
+  }
 });
 async function ensurePublicApplicationSession() {
   if (!cloudApp?.auth) throw new Error('云端申请服务尚未就绪，请稍后再试。');
@@ -2054,6 +2256,7 @@ async function ensurePublicApplicationSession() {
   return publicApplicationAuthPromise;
 }
 async function callYardApi(data) {
+  if (LOCAL_REVIEW) throw new Error('本地审核版未连接云端，这项操作暂不可用。填写的资料不会发送或同步到线上。');
   if (!cloudState.connected || !cloudApp?.callFunction) throw new Error('云端连接尚未就绪，请稍后再试。');
   try { await ensurePublicApplicationSession(); }
   // 保留原始错误作为 cause：访客看到的仍是通用提示，但排查时能在控制台看到真实原因。
@@ -2107,12 +2310,16 @@ async function openMyApplicationEditor() {
   const token = latestEditToken();
   if (!token) { openEditTokenModal(''); return; }
   const button = $('#applicantNotice button');
+  if (button?.disabled) return;
   if (button) { button.disabled = true; }
+  buttonFeedback(button, 'loading');
   try {
     const result = await callYardApi({ action: 'application.lookup', token });
     if (!result.ok) throw new Error(result.message || '修改凭证无效。');
+    buttonFeedback(button, 'success');
     openApplicationEditForm(result, token);
   } catch (error) {
+    buttonFeedback(button, 'error');
     toast(`${error.message || '修改凭证校验失败'} 也可以直接联系管理员帮你改。`);
   } finally {
     if (button) { button.disabled = false; }
@@ -2223,6 +2430,7 @@ document.addEventListener('submit', async event => {
   const previousLabel = button?.textContent;
   if (button?.disabled) return;
   if (button) { button.disabled = true; button.textContent = '正在提交...'; }
+  buttonFeedback(button, 'loading');
   try {
     const result = await submitApplicationThroughFunction(form, pet, data, kind);
     applications.unshift({
@@ -2234,8 +2442,10 @@ document.addEventListener('submit', async event => {
     rememberEditToken(result.applicationId, result.editToken);
     store.set(EDIT_NOTICE_DISMISSED_KEY, false);
     renderApplicantEditBanner();
+    buttonFeedback(button, 'success');
     openApplicationSuccessModal(pet, kind, result);
   } catch (error) {
+    buttonFeedback(button, 'error');
     toast(error.message || '申请提交失败，请稍后重试。');
   } finally {
     if (button) { button.disabled = false; button.textContent = previousLabel || `提交${kind === '预约申请' ? '预约' : '申请'}`; }
@@ -2247,13 +2457,17 @@ document.addEventListener('submit', async event => {
   const form = event.target;
   const token = String(new FormData(form).get('token') || '').trim();
   const button = $('button[type="submit"]', form);
+  if (button?.disabled) return;
   const previousLabel = button?.textContent;
   if (button) { button.disabled = true; button.textContent = '正在核对...'; }
+  buttonFeedback(button, 'loading');
   try {
     const result = await callYardApi({ action: 'application.lookup', token });
     if (!result.ok) throw new Error(result.message || '修改凭证无效。');
+    buttonFeedback(button, 'success');
     openApplicationEditForm(result, token);
   } catch (error) {
+    buttonFeedback(button, 'error');
     toast(error.message || '修改凭证校验失败，请稍后重试。');
   } finally {
     if (button) { button.disabled = false; button.textContent = previousLabel || '查看并修改'; }
@@ -2269,6 +2483,7 @@ document.addEventListener('submit', async event => {
   const previousLabel = button?.textContent;
   if (button?.disabled) return;
   if (button) { button.disabled = true; button.textContent = '正在保存...'; }
+  buttonFeedback(button, 'loading');
   try {
     const result = await callYardApi({
       action: 'application.edit',
@@ -2286,24 +2501,67 @@ document.addEventListener('submit', async event => {
     if (!result.ok) throw new Error(result.message || '申请修改失败，请稍后重试。');
     const index = applications.findIndex(item => item.id === result.applicationId);
     if (index >= 0) { applications[index] = { ...applications[index], ...data }; saveApplications(); }
+    buttonFeedback(button, 'success');
     closeModal();
     toast('申请资料已更新，管理员看到的就是最新内容。');
   } catch (error) {
+    buttonFeedback(button, 'error');
     toast(error.message || '申请修改失败，请稍后重试。');
   } finally {
     if (button) { button.disabled = false; button.textContent = previousLabel || '保存修改'; }
   }
 });
 
-$('#menuToggle').addEventListener('click', () => {
+function closeNavigation(restoreFocus = false) {
   const nav = $('#siteNav');
+  const button = $('#menuToggle');
+  const wasOpen = nav?.classList.contains('open');
+  nav?.classList.remove('open');
+  button?.setAttribute('aria-expanded', 'false');
+  button?.setAttribute('aria-label', '打开导航');
+  if (restoreFocus && wasOpen) button?.focus();
+}
+
+$('#menuToggle')?.addEventListener('click', () => {
+  const nav = $('#siteNav');
+  if (!nav) return;
   const expanded = nav.classList.toggle('open');
-  $('#menuToggle').setAttribute('aria-expanded', String(expanded));
-  $('#menuToggle').setAttribute('aria-label', expanded ? '关闭导航' : '打开导航');
+  $('#menuToggle')?.setAttribute('aria-expanded', String(expanded));
+  $('#menuToggle')?.setAttribute('aria-label', expanded ? '关闭导航' : '打开导航');
 });
-$$('#siteNav a').forEach(link => link.addEventListener('click', () => { $('#siteNav').classList.remove('open'); $('#menuToggle').setAttribute('aria-expanded', 'false'); }));
-window.addEventListener('scroll', () => $('.site-header').classList.toggle('scrolled', window.scrollY > 10), { passive: true });
-document.addEventListener('keydown', event => { if (event.key === 'Escape') { if (!$('#modalBackdrop').classList.contains('hidden')) { if (cropState) cancelPhotoCrop(); else closeModal(); } else if (!$('#adminBackdrop').classList.contains('hidden')) closeAdmin(); } });
+$$('#siteNav a').forEach(link => link.addEventListener('click', () => closeNavigation()));
+window.addEventListener('scroll', () => $('.site-header')?.classList.toggle('scrolled', window.scrollY > 10), { passive: true });
+window.addEventListener('popstate', () => {
+  if (SITE_PAGE === 'admin') changeAdminTab(adminTabFromUrl(), false);
+});
+document.addEventListener('keydown', event => {
+  const modalBackdrop = $('#modalBackdrop');
+  const activeModal = modalBackdrop && !modalBackdrop.classList.contains('hidden') ? $('#modal') : null;
+  if (event.key === 'Tab' && activeModal) {
+    const focusable = $$('button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled])', activeModal)
+      .filter(element => element.getClientRects().length > 0);
+    const first = focusable[0];
+    const last = focusable.at(-1);
+    if (first && last && event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (first && last && !event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+    return;
+  }
+  if (event.key !== 'Escape') return;
+  const adminBackdrop = $('#adminBackdrop');
+  if (modalBackdrop && !modalBackdrop.classList.contains('hidden')) {
+    if (cropState) cancelPhotoCrop();
+    else closeModal();
+  } else if ($('#siteNav')?.classList.contains('open')) {
+    closeNavigation(true);
+  } else if (SITE_PAGE !== 'admin' && adminBackdrop && !adminBackdrop.classList.contains('hidden')) {
+    closeAdmin();
+  }
+});
 
 /* ── AI 领养匹配助手 ──────────────────────────────────────────
    对接云函数 ai-stream（HTTP 云函数，SSE 流式）。
@@ -2359,6 +2617,7 @@ function matchSetBusy(busy) {
   if (submit) {
     submit.disabled = busy;
     submit.textContent = busy ? '正在思考…' : (matchState.messages.length ? '继续提问' : '开始匹配');
+    if (busy) buttonFeedback(submit, 'loading');
   }
   if (input) input.disabled = busy;
   if (reset && matchState.messages.length) reset.hidden = false;
@@ -2436,10 +2695,11 @@ function matchAppendSources(items) {
  * 写着「上了年纪的申请人自己改不动网站」。让他们用说的，比逼他们打字现实得多。
  *
  * 几点取舍：
- *   - 用浏览器自带能力，不接第三方语音服务：零成本、无需额外密钥；
+ *   - 用浏览器提供的识别接口，无需站点额外密钥；浏览器自身可能连接语音服务，
+ *     因此本地审核模式不启动识别；
  *   - 识别结果直接追加到输入框，申请人可以在发送前自己修改——
  *     语音识别会出错，不能识别完就替他发出去；
- *   - 浏览器不支持时按钮直接隐藏，不显示一个点了没反应的按钮。
+ *   - 本地审核和不支持的浏览器仍展示入口，但说明为何不可用。
  */
 const matchVoiceState = { recognition: null, listening: false, baseText: '' };
 
@@ -2465,11 +2725,17 @@ function matchVoiceStop() {
 function initMatchVoice() {
   const button = $('#matchVoice');
   if (!button) return;
-  if (!matchVoiceSupported()) {
-    button.hidden = true;
-    return;
+  const hint = $('#matchVoiceHint');
+  // Browser speech recognition may use a remote service; keep local review isolated.
+  const unavailableReason = LOCAL_REVIEW
+    ? '本地审核不会调用浏览器语音识别服务；正式使用时可在受支持的浏览器中启用。'
+    : (!matchVoiceSupported() ? '当前浏览器不支持语音输入，可以直接打字。' : '');
+  button.disabled = Boolean(unavailableReason);
+  if (hint) {
+    hint.hidden = !unavailableReason;
+    hint.textContent = unavailableReason;
   }
-  button.hidden = false;
+  if (unavailableReason) return;
   button.addEventListener('click', () => {
     if (matchVoiceState.listening) { matchVoiceStop(); return; }
     const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -2509,6 +2775,7 @@ function initMatchVoice() {
     } catch {
       matchVoiceState.listening = false;
       matchVoiceSetLabel(false);
+      toast('语音识别没能启动，可以直接打字。');
     }
   });
 }
@@ -2583,7 +2850,7 @@ function renderPhotoMatches(container, result) {
       const pet = petById(item.petId);
       const cover = pet ? mediaUrl(coverMedia(pet)) : '';
       return `<div class="match-photo-hit">
-        ${cover ? `<img src="${escapeHtml(cover)}" alt="" />` : ''}
+        ${cover ? `<img loading="lazy" decoding="async" src="${escapeHtml(cover)}" alt="" />` : ''}
         <div>
           <strong>${escapeHtml(item.petName || pet?.name || '')}</strong>
           <p>画面相似度 ${(Number(item.similarity) * 100).toFixed(0)}%</p>
@@ -2596,9 +2863,18 @@ function renderPhotoMatches(container, result) {
 
 async function handlePhotoSearch(file) {
   const container = $('#matchPhotoResult');
+  if (LOCAL_REVIEW) {
+    if (container) {
+      container.hidden = false;
+      container.innerHTML = '<p class="match-photo-empty">本地审核版暂不调用照片比对服务。照片不会上传，审核通过后可恢复云端图搜。</p>';
+    }
+    return;
+  }
   const label = $('#matchPhotoLabel');
+  const picker = label?.closest('.match-photo-pick');
   const previous = label?.textContent;
   if (label) label.textContent = '正在比对…';
+  buttonFeedback(picker, 'loading');
   if (container) {
     container.hidden = false;
     container.innerHTML = '<p class="match-photo-empty">正在读照片并和站内宠物比对，第一次会稍慢…</p>';
@@ -2613,6 +2889,7 @@ async function handlePhotoSearch(file) {
     const result = await response.json().catch(() => null);
     if (!result) throw new Error(`服务返回无法解析的内容（${response.status}）。`);
     if (result.ok !== true) throw new Error(result.message || '比对失败。');
+    buttonFeedback(picker, 'success');
     // 建索引时单张失败不影响整体，但要让用户知道有几张没成功，
     // 否则"结果少了"会被当成模型不准
     const failed = Array.isArray(result.failures) ? result.failures : [];
@@ -2624,6 +2901,7 @@ async function handlePhotoSearch(file) {
       container.appendChild(note);
     }
   } catch (error) {
+    buttonFeedback(picker, 'error');
     if (container) {
       container.hidden = false;
       container.innerHTML = `<p class="match-photo-empty">${escapeHtml(error.message || '比对失败，请稍后重试。')}</p>`;
@@ -2649,6 +2927,11 @@ async function matchAsk(preset) {
 
   const question = String(preset ?? input?.value ?? '').trim();
   if (!question) { input?.focus(); return; }
+  if (LOCAL_REVIEW) {
+    matchAppend('ai', '本地审核版暂不调用 AI 匹配服务。你可以先查看宠物档案和领养流程，审核通过后再使用云端匹配。');
+    input?.focus();
+    return;
+  }
 
   matchState.streaming = true;
   if (input) input.value = '';
@@ -2660,6 +2943,8 @@ async function matchAsk(preset) {
   bubble.classList.add('is-pending');
   let answer = '';
   let failure = '';
+  let completed = false;
+  let cancelled = false;
   const sources = [];
 
   matchState.controller = new AbortController();
@@ -2715,6 +3000,7 @@ async function matchAsk(preset) {
       // 不依赖模型在正文里引用——它可能忘了说，而"依据可查"不能靠它自觉。
       matchAppendSources(sources);
       matchAppendSpeak(answer);
+      completed = !failure;
     } else {
       bubble.classList.add('is-error');
       bubble.textContent = failure || 'AI 这次没有给出回复，请再试一次。';
@@ -2722,6 +3008,7 @@ async function matchAsk(preset) {
   } catch (error) {
     bubble.classList.remove('is-pending');
     bubble.classList.add('is-error');
+    cancelled = error?.name === 'AbortError';
     bubble.textContent = error?.name === 'AbortError'
       ? '已停止这次回答。'
       : (error?.message || 'AI 服务暂时不可用，请稍后再试。');
@@ -2730,6 +3017,7 @@ async function matchAsk(preset) {
     matchState.streaming = false;
     matchState.controller = null;
     matchSetBusy(false);
+    buttonFeedback($('#matchSubmit'), cancelled ? 'idle' : completed ? 'success' : 'error', { paw: completed });
     input?.focus();
   }
 }
@@ -2748,6 +3036,13 @@ function initMatchAssistant() {
   const { thread, form, input, reset } = matchElements();
   if (!thread || !form) return;
   thread.innerHTML = matchWelcomeHtml();
+  if (LOCAL_REVIEW) {
+    const hint = $('#matchModeHint');
+    if (hint) {
+      hint.hidden = false;
+      hint.textContent = '本地审核：对话和照片不会发送到云端，AI 匹配与照片比对暂不可用。';
+    }
+  }
   initMatchVoice();
   initPhotoSearch();
 
@@ -2773,12 +3068,38 @@ function initMatchAssistant() {
   reset?.addEventListener('click', resetMatchAssistant);
 }
 
+function redirectLegacyHomeHash() {
+  if (SITE_PAGE !== 'home') return false;
+  const routes = { '#pets': 'pets.html', '#match': 'match.html', '#how': 'adoption.html', '#stories': 'stories.html', '#about': 'about.html' };
+  const route = routes[window.location.hash];
+  if (!route) return false;
+  window.location.replace(`${route}${window.location.search}`);
+  return true;
+}
+
 async function initializeSite() {
+  if (redirectLegacyHomeHash()) return;
+  if (SITE_PAGE === 'admin') {
+    adminTab = adminTabFromUrl();
+    const url = new URL(window.location.href);
+    if (url.searchParams.has('tab') && !ADMIN_TABS.includes(url.searchParams.get('tab'))) {
+      url.searchParams.delete('tab');
+      window.history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`);
+    }
+    renderAdminAccessGate();
+  }
   renderAll();
   renderAdminSyncNotice();
   renderApplicantEditBanner();
   initMatchAssistant();
+  await window.YARD_CLOUD_READY;
   await loadCloudPublicData();
   startFeaturedPetRotation();
+  if (SITE_PAGE === 'admin') await openAdmin();
+  const petId = new URL(window.location.href).searchParams.get('pet');
+  if (petId && SITE_PAGE !== 'admin') {
+    if (petById(petId)) openPetDetail(petId);
+    else toast('这份宠物档案暂时不可用，可以在寻找伙伴页面查看当前档案。');
+  }
 }
 initializeSite();

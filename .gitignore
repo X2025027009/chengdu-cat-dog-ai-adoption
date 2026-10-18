@@ -35,6 +35,7 @@ DEPLOY-TEST.md
 参赛方案.md
 AI技术方案.md
 赛事官方要求.md
+docs/*交接*.md
 
 # 修复前的云端函数源码留存：只作本地回滚参考，不进公开仓库
 .cloudfn-backup/

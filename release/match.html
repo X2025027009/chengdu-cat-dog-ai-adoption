@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script src="page-transitions.js"></script>
+    <meta name="description" content="和小院 AI 匹配助手聊聊你的生活条件，再决定申请哪一只宠物。" />
+    <title>AI 领养匹配 · 成都猫狗小院</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="icon" type="image/svg+xml" href="assets/brand/friends-mark.svg" />
+  </head>
+  <body data-page="match">
+    <!-- THESIS: One task, one real URL; the homepage welcomes, dedicated pages let visitors act.
+       OWN-WORLD: Cream, warm yellow, rounded sans lettering, genuine courtyard photos and separate decorative art.
+       STORY: Meet a pet, understand the fit and process, apply with care, then follow its new life; administration stays separate.
+       FIRST VIEWPORT: Home retains copy-left/photo-right; task pages put title and primary tool first, with active navigation.
+       FORM: Preview-led visual refresh of the existing buildless multipage site.
+       FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, DESIGN.md, and every shipping raster carrying its provenance -->
+    <a class="skip-link" href="#main">跳到主要内容</a>
+
+    <header class="site-header" id="top">
+      <div class="container header-inner">
+        <a class="brand" href="index.html" aria-label="成都猫狗小院首页">
+          <span class="brand-mark" aria-hidden="true">
+            <svg viewBox="0 0 48 48" fill="none">
+              <path
+                d="M18.7 14.5c-2.6-4.1-6.5-5.8-8.6-5.5-1.2.2-1.8 1.4-1.4 2.5 1.3 3.6 3.5 6.3 6.2 7.4M29.4 14.7c2.5-4.1 6.3-5.9 8.5-5.7 1.2.1 1.9 1.3 1.6 2.5-1 3.7-3.1 6.5-5.8 7.8"
+                stroke="currentColor"
+                stroke-width="3"
+                stroke-linecap="round"
+              />
+              <path d="M24 17.5c-8.1 0-13.5 5.7-13.5 13.5 0 7.4 5.6 11.5 13.5 11.5S37.5 38.4 37.5 31C37.5 23.2 32.1 17.5 24 17.5Z" fill="currentColor" opacity=".95" />
+              <path d="M20.3 29.1c.9-1.1 2.1-1.7 3.7-1.7s2.8.6 3.7 1.7M20.5 34.3c1 .8 2.1 1.2 3.5 1.2s2.5-.4 3.5-1.2" stroke="#fff8ef" stroke-width="2.1" stroke-linecap="round" />
+            </svg>
+          </span>
+          <span><strong>成都猫狗小院</strong><small>领养代替购买</small></span>
+        </a>
+
+        <button class="menu-toggle" id="menuToggle" aria-label="打开导航" aria-expanded="false" aria-controls="siteNav"><span></span><span></span><span></span></button>
+
+        <nav class="site-nav" id="siteNav" aria-label="主导航">
+          <a href="index.html">首页</a>
+          <a href="pets.html">寻找伙伴</a>
+          <a href="match.html" aria-current="page">AI 匹配</a>
+          <a href="adoption.html">如何领养</a>
+          <a href="stories.html">回访档案</a>
+          <a href="about.html">关于小院</a>
+          <a class="nav-admin" href="admin.html">管理员入口</a>
+        </nav>
+      </div>
+    </header>
+
+    <div class="local-review-notice" id="localReviewNotice" hidden>
+      <div class="container"><strong>本地审核预览</strong><span>示例与本机数据 · 不连接云端，操作只保存在本浏览器。</span></div>
+    </div>
+    <main id="main">
+      <div class="container" id="applicantNotice" hidden></div>
+      <section class="section match-section" id="match">
+        <div class="container">
+          <div class="match-intro">
+            <figure class="page-hero-photo page-hero-photo-match" data-page-entry>
+              <img loading="lazy" decoding="async" src="assets/real/courtyard-brown-dog.png" alt="棕色小狗站在小院里" />
+            </figure>
+            <div data-page-entry>
+              <h1 class="page-title">先聊一聊，再决定申请谁</h1>
+              <p>说说你的生活，找到适合的伙伴。</p>
+            </div>
+          </div>
+
+          <div class="match-panel" data-page-entry>
+            <div class="match-panel-heading">
+              <span class="match-assistant-icon" aria-hidden="true"></span>
+              <h2>小院 AI 匹配助手</h2>
+            </div>
+            <div class="match-thread" id="matchThread" aria-live="polite" aria-label="AI 领养匹配对话"></div>
+
+            <form class="match-form" id="matchForm">
+              <label class="match-label" for="matchInput">描述你的情况</label>
+              <textarea id="matchInput" name="message" rows="2" maxlength="600" placeholder="例如：我和家人一起住，白天有人在家，有养猫经验，想找一只性格温和的狗狗。" required></textarea>
+              <div class="match-actions">
+                <button class="button button-primary" type="submit" id="matchSubmit">开始匹配</button>
+                <button class="button button-ghost match-voice" type="button" id="matchVoice" aria-pressed="false">
+                  <svg class="match-voice-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <rect x="9" y="3" width="6" height="12" rx="3" stroke="currentColor" stroke-width="1.8" />
+                    <path d="M6 11a6 6 0 0 0 12 0M12 17v4m-4 0h8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" /></svg
+                  ><span id="matchVoiceText">语音输入</span>
+                </button>
+                <button class="button button-ghost" type="button" id="matchReset" hidden>重新开始</button>
+              </div>
+              <p class="match-voice-hint" id="matchVoiceHint" role="status" hidden></p>
+            </form>
+
+            <p class="match-mode-hint" id="matchModeHint" hidden></p>
+          </div>
+          <div class="match-photo">
+            <div class="match-photo-head">
+              <span class="match-photo-title">或者，用一张照片来找</span>
+              <span class="match-photo-note">照片会发送给图像比对服务处理，请勿上传含私人信息的照片。</span>
+            </div>
+            <div class="match-photo-actions">
+              <label class="button button-ghost match-photo-pick">
+                <input id="matchPhotoFile" class="match-photo-input" type="file" accept="image/jpeg,image/png,image/webp" />
+                <span id="matchPhotoLabel">选择一张照片</span>
+              </label>
+            </div>
+            <div id="matchPhotoResult" class="match-photo-result" hidden></div>
+          </div>
+          <p class="match-disclaimer">AI 建议仅供参考，最终由小院与你沟通后决定。请不要在这里填写身份证号、家庭住址等敏感信息。</p>
+        </div>
+      </section>
+      <aside class="page-next container" aria-label="下一步">
+        <p>想直接看看小院的伙伴？</p>
+        <a class="text-link" href="pets.html">浏览宠物档案<span aria-hidden="true">→</span></a>
+      </aside>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container footer-inner">
+        <a class="brand brand-footer" href="index.html"
+          ><span class="brand-mark" aria-hidden="true"
+            ><svg viewBox="0 0 48 48" fill="none">
+              <path
+                d="M18.7 14.5c-2.6-4.1-6.5-5.8-8.6-5.5-1.2.2-1.8 1.4-1.4 2.5 1.3 3.6 3.5 6.3 6.2 7.4M29.4 14.7c2.5-4.1 6.3-5.9 8.5-5.7 1.2.1 1.9 1.3 1.6 2.5-1 3.7-3.1 6.5-5.8 7.8"
+                stroke="currentColor"
+                stroke-width="3"
+                stroke-linecap="round"
+              />
+              <path d="M24 17.5c-8.1 0-13.5 5.7-13.5 13.5 0 7.4 5.6 11.5 13.5 11.5S37.5 38.4 37.5 31C37.5 23.2 32.1 17.5 24 17.5Z" fill="currentColor" opacity=".95" />
+              <path d="M20.3 29.1c.9-1.1 2.1-1.7 3.7-1.7s2.8.6 3.7 1.7M20.5 34.3c1 .8 2.1 1.2 3.5 1.2s2.5-.4 3.5-1.2" stroke="#fff8ef" stroke-width="2.1" stroke-linecap="round" /></svg></span
+          ><span><strong>成都猫狗小院</strong><small>领养代替购买</small></span></a
+        >
+        <p>当前为示例网站原型，动物资料与联系方式均可由管理员在后台替换。</p>
+        <div class="footer-actions">
+          <button class="footer-admin" id="footerEditApplication">修改我的申请</button>
+          <a class="footer-admin" href="admin.html">管理员入口</a>
+        </div>
+      </div>
+    </footer>
+
+    <div class="modal-backdrop hidden" id="modalBackdrop" aria-hidden="true">
+      <section class="modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle"></section>
+    </div>
+
+    <div class="toast hidden" id="toast" role="status" aria-live="polite"></div>
+
+    <script src="site-config.js" defer></script>
+    <script src="button-feedback.js" defer></script>
+    <script src="app.js" defer></script>
+  </body>
+</html>
