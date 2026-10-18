@@ -24,37 +24,76 @@ const SITE = 'https://chuanzhibei-d3gvmowp1e63d7f33-1470251683.tcloudbaseapp.com
 const offline = process.argv.includes('--offline');
 
 /**
- * 站点文件清单：根目录下的所有 .html 加上站点脚本。
+ * 站点文件清单：根目录的 .html 加站点脚本与样式。
  *
- * 原先这里写死三个文件名。站点从单页改成多页、新增六个页面之后，
- * 写死的清单**永远不会发现新页面漏同步**——而那正是最容易出错的环节。
- * 改为自动扫描：根目录的 .html 全部纳入，脚本按白名单纳入。
+ * 这里曾写死三个文件名，站点改多页后完全失效（新页面漏同步它不会报）。
+ * 后来改成白名单，又漏了 page-transitions.js 与 button-feedback.js——
+ * 白名单同样会过时。现在改为：根目录所有 .js 都纳入，
+ * 只排除明确不属于站点的（云函数、验证脚本在子目录里，天然不会进来）。
  */
+const NON_SITE_SCRIPTS = new Set(['eslint.config.mjs']);
+
 function siteFiles() {
-  const html = fs.readdirSync(ROOT).filter(name => name.endsWith('.html'));
-  const scripts = ['app.js', 'site-config.js'].filter(name => fs.existsSync(path.join(ROOT, name)));
-  const styles = fs.existsSync(path.join(ROOT, 'styles.css')) ? ['styles.css'] : [];
-  return [...html, ...scripts, ...styles].sort();
+  const entries = fs.readdirSync(ROOT, { withFileTypes: true });
+  return entries
+    .filter(entry => entry.isFile())
+    .filter(entry => entry.name.endsWith('.html') || entry.name.endsWith('.css') || (entry.name.endsWith('.js') && !NON_SITE_SCRIPTS.has(entry.name)))
+    .map(entry => entry.name)
+    .sort();
 }
 const FILES = siteFiles();
 
 /**
- * 站点素材（assets/ 下的图片等）也要一起比对。
+ * 站点素材（assets/ 下的图片等）也要一起比对，**递归**收集。
  *
- * 之前只盯三个代码文件，后来加了小院合影才发现：改了图没同步、
- * 或者图没上传，检查都不会报——而那两件事同样会让线上显示旧内容。
+ * 这个函数此前只枚举 assets/ 第一层，而素材后来分了 brand/、real/ 子目录，
+ * 结果它会把目录当成文件去 readFileSync 从而报错——
+ * 一个"检查工具"自己先崩了，比不检查更糟。
+ * 嵌套素材漏传同样会导致线上显示旧图或占位图，所以必须递归。
  */
-function assetFiles() {
-  const dir = path.join(ROOT, 'assets');
+function walkAssets(dir, prefix = 'assets') {
   if (!fs.existsSync(dir)) return [];
-  return fs
-    .readdirSync(dir)
-    .filter(name => !name.startsWith('.'))
-    .map(name => `assets/${name}`);
+  const out = [];
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (entry.name.startsWith('.')) continue;
+    const rel = `${prefix}/${entry.name}`;
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) out.push(...walkAssets(full, rel));
+    else if (entry.isFile()) out.push(rel);
+  }
+  return out;
+}
+
+function assetFiles() {
+  return walkAssets(path.join(ROOT, 'assets')).sort();
 }
 const ALL_FILES = [...FILES, ...assetFiles()];
 
 const sha = buffer => crypto.createHash('sha256').update(buffer).digest('hex');
+
+/**
+ * 线上资源校验：不仅要比哈希，还要确认状态码与类型。
+ *
+ * 静态托管在文件缺失时会返回首页或错误页，且可能是 HTTP 200。
+ * 只比哈希偶尔能发现，但报错信息会误导（"内容不一致"而不是"文件不存在"）。
+ * 因此这里先看状态码与 Content-Type，再比内容。
+ */
+const EXPECTED_TYPE = file =>
+  file.endsWith('.html')
+    ? 'text/html'
+    : file.endsWith('.css')
+      ? 'text/css'
+      : file.endsWith('.js')
+        ? 'javascript'
+        : file.endsWith('.svg')
+          ? 'svg'
+          : file.endsWith('.png')
+            ? 'image/png'
+            : file.endsWith('.jpg') || file.endsWith('.jpeg')
+              ? 'image/jpeg'
+              : file.endsWith('.webp')
+                ? 'image/webp'
+                : '';
 
 let passed = 0;
 let failed = 0;
@@ -103,6 +142,20 @@ function check(label, condition, detail = '') {
       const local = fs.readFileSync(releasePath);
       try {
         const response = await fetch(`${SITE}/${file}?t=${Date.now()}`);
+        const type = response.headers.get('content-type') || '';
+        const expected = EXPECTED_TYPE(file);
+
+        // 先看状态码与类型：文件缺失时静态托管可能返回首页并以 200 响应，
+        // 那时只比哈希会报"内容不一致"，把问题指向错误的方向
+        if (response.status !== 200) {
+          check(`${file} 线上可访问`, false, `HTTP ${response.status}`);
+          continue;
+        }
+        if (expected && !type.includes(expected)) {
+          check(`${file} 线上类型正确`, false, `期望 ${expected}，实际 ${type || '(无)'}——多半是被回退页替代了`);
+          continue;
+        }
+
         const remote = Buffer.from(await response.arrayBuffer());
         check(`${file} 线上与发布源一致`, sha(local) === sha(remote), 'release/ 改了但没执行部署，线上仍是旧版本');
       } catch (error) {

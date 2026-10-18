@@ -234,8 +234,18 @@ check(
 
 if (includeRelease) {
   // 保留发布检查，只有委托方的显式发布验收才要求源码与发布源清单同步。
-  const siteFiles = fs.readdirSync(ROOT).filter(file => file.endsWith('.html'));
-  siteFiles.push(...['app.js', 'site-config.js', 'styles.css'].filter(file => fs.existsSync(path.join(ROOT, file))));
+  //
+  // 站点清单改为自动扫描根目录，不再写死文件名。这里原先只列了
+  // app.js / site-config.js / styles.css，站点新增 page-transitions.js
+  // 与 button-feedback.js 之后就会漏判——而漏判比误判更危险，
+  // 它会让人以为发布已经完整。
+  const NON_SITE = new Set(['eslint.config.mjs']);
+  const siteFiles = fs
+    .readdirSync(ROOT, { withFileTypes: true })
+    .filter(entry => entry.isFile())
+    .filter(entry => entry.name.endsWith('.html') || entry.name.endsWith('.css') || (entry.name.endsWith('.js') && !NON_SITE.has(entry.name)))
+    .map(entry => entry.name)
+    .sort();
   const releaseMissing = siteFiles.filter(file => !tracked.includes(`release/${file}`));
   check('release/ 页面与共享资源清单齐全', releaseMissing.length === 0, releaseMissing.join('、'));
   const releaseAssets = tracked.filter(file => file.startsWith('release/assets/'));
