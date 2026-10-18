@@ -128,7 +128,9 @@ check('.gitignore 排除了真实 .env', /^\.env$/m.test(gitignore) || /\.env\b/
 check('.env.example 已提交且不含真实值', fs.existsSync(path.join(ROOT, '.env.example')));
 
 const internalDocs = ['BUG.md', 'TIMEOFF.md', 'THE END.md', 'DEPLOY-TEST.md', '申请功能修复报告.md', '参赛方案.md', 'AI技术方案.md', '赛事官方要求.md'];
-const leakedDocs = internalDocs.filter(doc => tracked.includes(doc));
+const leakedDocs = tracked.filter(
+  doc => internalDocs.includes(doc) || /^docs\/.*(?:指令|下一轮任务|交接|交付报告).*\.md$/.test(doc) || doc.startsWith('docs/screenshots/') || doc === 'docs/赛事官方要求-10039.md'
+);
 check('内部工作文档未进入公开仓库', leakedDocs.length === 0, leakedDocs.join('、'));
 
 // ── 2. README ─────────────────────────────────────────────────
