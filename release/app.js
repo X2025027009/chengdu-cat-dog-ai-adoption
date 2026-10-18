@@ -487,13 +487,13 @@ function renderFeaturedLoadingState() {
   const storyHeading = $('#storyFeatureHeading');
   const storyDescription = $('#storyFeatureDescription');
   const storyButton = $('#storyFeatureButton');
-  if (heroImage) { heroImage.src = 'assets/brand/companions.png'; heroImage.alt = '正在读取最新宠物档案'; }
+  if (heroImage) { heroImage.src = 'assets/brand/companions.webp'; heroImage.alt = '正在读取最新宠物档案'; }
   if (heroStamp) heroStamp.textContent = '正在读取';
   if (heroStatus) heroStatus.textContent = '正在读取';
   if (heroName) heroName.textContent = '正在读取最新档案';
   if (heroDescription) heroDescription.textContent = '正在从小院云端更新宠物资料和影像。';
   if (heroButton) heroButton.hidden = true;
-  if (storyImage) { storyImage.src = 'assets/brand/companions.png'; storyImage.alt = '正在读取已领养生活档案'; }
+  if (storyImage) { storyImage.src = 'assets/brand/companions.webp'; storyImage.alt = '正在读取已领养生活档案'; }
   if (storyLabel) storyLabel.textContent = '回访档案 · 正在读取';
   if (storyHeading) storyHeading.innerHTML = '正在读取新的生活档案。';
   if (storyDescription) storyDescription.textContent = '云端资料加载完成后，会在这里显示最新回访。';
@@ -1109,10 +1109,10 @@ function renderAdmin() {
   const art = $('#adminTabArt');
   if (art) {
     const artwork = {
-      overview: 'assets/brand/admin-play-and-stretch.png',
-      pets: 'assets/brand/admin-cushion-peek.png',
-      applications: 'assets/brand/admin-walk-together.png',
-      settings: 'assets/brand/admin-settings-companions.png'
+      overview: 'assets/brand/admin-play-and-stretch.webp',
+      pets: 'assets/brand/admin-cushion-peek.webp',
+      applications: 'assets/brand/admin-walk-together.webp',
+      settings: 'assets/brand/admin-settings-companions.webp'
     };
     art.src = artwork[adminTab];
   }
