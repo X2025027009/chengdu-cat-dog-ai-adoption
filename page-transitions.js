@@ -4,6 +4,38 @@
   const pagePaths = ['index.html', 'pets.html', 'match.html', 'adoption.html', 'stories.html', 'about.html', 'admin.html'].map(file => new URL(file, siteBase).pathname);
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
   const handoffKey = 'yard:page-transition';
+  let clearEntries = () => {};
+
+  function enterContent(transition) {
+    // 只编排首屏可见的独立内容，不延迟导航、不等图片，也不反复播放滚动揭示。
+    const entries = [...document.querySelectorAll('[data-page-entry], .pet-grid > .pet-card')]
+      .filter(element => {
+        const rect = element.getBoundingClientRect();
+        return rect.width > 0 && rect.height > 0 && rect.bottom > 0 && rect.top < window.innerHeight;
+      })
+      .slice(0, 6);
+    const previous = entries.map(element => element.style.viewTransitionName);
+    entries.forEach((element, index) => {
+      element.style.viewTransitionName = `site-entry-${index}`;
+      element.classList.add('page-entry-active');
+      // 首页原有首次打开动画不能在快照结束、清理命名时重新播放。
+      if (element.classList.contains('reveal')) element.classList.add('page-entry-settled');
+    });
+    let cleaned = false;
+    const cleanup = () => {
+      if (cleaned) return;
+      cleaned = true;
+      entries.forEach((element, index) => {
+        element.style.viewTransitionName = previous[index];
+        element.classList.remove('page-entry-active');
+      });
+      if (clearEntries === cleanup) clearEntries = () => {};
+    };
+    clearEntries = cleanup;
+    // 完成、被跳过或中途再次导航均恢复 DOM，避免污染历史缓存。
+    transition.finished.then(cleanup, cleanup);
+    transition.ready.catch(() => {});
+  }
 
   function pageIndex(value) {
     if (!value) return -1;
@@ -25,9 +57,11 @@
     }
     // 历史返回也比较真实起终点，不把“返回”一律当作向右。
     transition.types.add(to > from ? 'site-forward' : 'site-backward');
+    enterContent(transition);
   }
 
   window.addEventListener('pageswap', event => {
+    clearEntries();
     const from = pageIndex(window.location.href);
     const activation = event.activation;
     // no-referrer 等策略可能隐藏历史条目的 URL。只交接页序与条目键，

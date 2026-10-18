@@ -236,7 +236,7 @@ function galleryStageMarkup(item, pet, index = 0) {
     if (isDirectVideo(item)) return `<video class="gallery-stage-media" controls playsinline preload="metadata" src="${escapeHtml(url)}" aria-label="${escapeHtml(pet.name)}的视频 ${index + 1}"></video>`;
     return `<div class="gallery-external"><strong>这是一条外部视频</strong><span>视频号、抖音或哔哩哔哩页面不能直接嵌入播放器，请在新窗口打开。</span><a class="button button-light" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">打开外部视频</a></div>`;
   }
-  return `<img class="gallery-stage-media" src="${escapeHtml(url)}" alt="${escapeHtml(pet.name)}的照片 ${index + 1}" />`;
+  return `<img loading="lazy" decoding="async" class="gallery-stage-media" src="${escapeHtml(url)}" alt="${escapeHtml(pet.name)}的照片 ${index + 1}" />`;
 }
 async function hydrateLocalMedia() {
   for (const pet of pets) {
@@ -385,7 +385,7 @@ function galleryMarkup(pet) {
     const label = item.type === 'video' ? (isDirectVideo(item) ? '视频' : '外部视频') : '照片';
     const preview = item.type === 'video'
       ? `<span class="video-thumb">${label}</span>`
-      : url ? `<img src="${escapeHtml(url)}" alt="" />` : `<span class="video-thumb media-missing">不可用</span>`;
+      : url ? `<img loading="lazy" decoding="async" src="${escapeHtml(url)}" alt="" />` : `<span class="video-thumb media-missing">不可用</span>`;
     return `<button class="gallery-thumb ${item === initial ? 'active' : ''}" type="button" data-gallery-pet="${escapeHtml(pet.id)}" data-gallery-index="${index}" aria-label="查看${escapeHtml(pet.name)}的${label} ${index + 1}" aria-pressed="${item === initial}">${preview}</button>`;
   }).join('');
   return `<div class="pet-gallery" data-gallery-root="${escapeHtml(pet.id)}"><div class="gallery-stage" data-gallery-stage>${stage}</div>${media.length > 1 ? `<div class="gallery-thumbs" aria-label="${escapeHtml(pet.name)}的影像列表">${thumbs}</div>` : ''}</div>`;
@@ -657,7 +657,7 @@ function petCardMarkup(pet) {
   return `
     <article class="pet-card">
       <button class="pet-card-image" data-open-pet="${escapeHtml(pet.id)}" aria-label="查看${escapeHtml(pet.name)}的详情">
-        <img src="${escapeHtml(mediaUrl(coverMedia(pet)))}" alt="${escapeHtml(pet.name)}，${escapeHtml(pet.type)}照片" />
+        <img loading="lazy" decoding="async" src="${escapeHtml(mediaUrl(coverMedia(pet)))}" alt="${escapeHtml(pet.name)}，${escapeHtml(pet.type)}照片" />
         <span class="status-pill ${statusClass(pet.status)}">${escapeHtml(pet.status)}</span>
       </button>
       <div class="pet-card-content">
@@ -956,7 +956,7 @@ function openContactModal() {
     return;
   }
   const qr = settings.wechatQrUrl
-    ? `<div class="contact-qr"><img src="${escapeHtml(settings.wechatQrUrl)}" alt="成都猫狗小院微信二维码" /><p>可保存或使用微信扫一扫识别二维码。</p></div>`
+    ? `<div class="contact-qr"><img loading="lazy" decoding="async" src="${escapeHtml(settings.wechatQrUrl)}" alt="成都猫狗小院微信二维码" /><p>可保存或使用微信扫一扫识别二维码。</p></div>`
     : '<p class="contact-qr-empty">管理员暂未上传微信二维码，可先通过电话或微信号咨询。</p>';
   openModal(`
     <div class="form-modal">
@@ -1139,11 +1139,11 @@ function renderAdminOverview() {
       <div class="dashboard-stat"><strong>${paused}</strong><span>暂不适合领养</span></div>
       <div class="dashboard-stat"><strong>${openApps}</strong><span>待处理申请</span></div>
     </div>
-    <div class="admin-block"><h4>最近提交的申请</h4>${recent.length ? `<div class="mini-list">${recent.map(app => `<div class="mini-list-row"><img src="${escapeHtml(mediaUrl(coverMedia(petById(app.petId) || DEFAULT_PETS[0])))}" alt="" /><div><strong>${escapeHtml(app.name)} · ${escapeHtml(app.kind)}</strong><p>${escapeHtml(app.petName)} · ${escapeHtml(app.contact)}</p></div><span>${escapeHtml(app.status)}</span></div>`).join('')}</div><button class="admin-edit application-inbox-link" type="button" data-open-applications>查看并处理全部申请</button>` : '<div class="admin-empty">还没有申请记录。访客提交的领养或预约申请会显示在这里。</div>'}</div>`;
+    <div class="admin-block"><h4>最近提交的申请</h4>${recent.length ? `<div class="mini-list">${recent.map(app => `<div class="mini-list-row"><img loading="lazy" decoding="async" src="${escapeHtml(mediaUrl(coverMedia(petById(app.petId) || DEFAULT_PETS[0])))}" alt="" /><div><strong>${escapeHtml(app.name)} · ${escapeHtml(app.kind)}</strong><p>${escapeHtml(app.petName)} · ${escapeHtml(app.contact)}</p></div><span>${escapeHtml(app.status)}</span></div>`).join('')}</div><button class="admin-edit application-inbox-link" type="button" data-open-applications>查看并处理全部申请</button>` : '<div class="admin-empty">还没有申请记录。访客提交的领养或预约申请会显示在这里。</div>'}</div>`;
 }
 function renderAdminPets() {
   const editPet = adminEditing === 'new' ? { id: '', name: '', type: '猫咪', status: '待领养', age: '', gender: '母', image: '', video: '', tags: [], description: '', health: '', requirements: '默认领养要求：稳定住所、家庭成员同意、做好安全防护、接受后续回访。', reason: '', updates: [] } : petById(adminEditing);
-  const rows = pets.map(pet => `<div class="admin-row"><img src="${escapeHtml(mediaUrl(coverMedia(pet)))}" alt="" /><div><strong>${escapeHtml(pet.name)}</strong><p>${escapeHtml(pet.type)} · ${escapeHtml(pet.gender)} · ${escapeHtml(pet.age)}</p></div><select data-pet-status="${pet.id}">${['待领养','已领养','暂不适合领养'].map(status => `<option ${pet.status === status ? 'selected' : ''}>${status}</option>`).join('')}</select><span class="status-pill ${statusClass(pet.status)}" style="position:static;justify-self:start">${escapeHtml(pet.status)}</span><div class="admin-row-actions"><button class="admin-edit" data-edit-pet="${pet.id}">编辑</button><button class="admin-delete" type="button" data-delete-pet="${pet.id}">删除档案</button></div></div>`).join('');
+  const rows = pets.map(pet => `<div class="admin-row"><img loading="lazy" decoding="async" src="${escapeHtml(mediaUrl(coverMedia(pet)))}" alt="" /><div><strong>${escapeHtml(pet.name)}</strong><p>${escapeHtml(pet.type)} · ${escapeHtml(pet.gender)} · ${escapeHtml(pet.age)}</p></div><select data-pet-status="${pet.id}">${['待领养','已领养','暂不适合领养'].map(status => `<option ${pet.status === status ? 'selected' : ''}>${status}</option>`).join('')}</select><span class="status-pill ${statusClass(pet.status)}" style="position:static;justify-self:start">${escapeHtml(pet.status)}</span><div class="admin-row-actions"><button class="admin-edit" data-edit-pet="${pet.id}">编辑</button><button class="admin-delete" type="button" data-delete-pet="${pet.id}">删除档案</button></div></div>`).join('');
   return `${adminPageHead('宠物档案', '添加、编辑或删除档案，管理照片、视频、领养状态及每只宠物的单独要求。', '<button class="admin-primary" data-new-pet>添加宠物</button>')}
     <div class="admin-table">${rows || '<div class="admin-empty">还没有宠物档案。</div>'}</div>
     ${editPet ? renderPetEditor(editPet) : ''}`;
@@ -1157,7 +1157,7 @@ function renderExistingMediaManager(pet) {
     const isImage = item.type === 'image';
     const typeLabel = isImage ? '照片' : isDirectVideo(item) ? '视频' : '外部视频';
     const preview = isImage && url
-      ? `<img src="${escapeHtml(url)}" alt="${escapeHtml(pet.name)}的${typeLabel} ${index + 1}" />`
+      ? `<img loading="lazy" decoding="async" src="${escapeHtml(url)}" alt="${escapeHtml(pet.name)}的${typeLabel} ${index + 1}" />`
       : `<span class="media-manager-type">${typeLabel}</span>`;
     const caption = item.caption || `${typeLabel} ${index + 1}`;
     const coverChoice = isImage ? `<label class="media-cover-choice"><input type="radio" name="coverMediaId" value="${escapeHtml(item.id)}" ${item.id === currentCover.id ? 'checked' : ''} /><span>设为封面</span></label>` : '';
@@ -1337,7 +1337,7 @@ function renderAdminApplications() {
 }
 function renderAdminSettings() {
   const qrPreview = settings.wechatQrUrl
-    ? `<div class="settings-qr-preview"><img src="${escapeHtml(settings.wechatQrUrl)}" alt="当前微信二维码" /><div><strong>当前微信二维码</strong><span>更换二维码后，保存网站设置才会生效。</span><label class="settings-qr-remove"><input type="checkbox" name="removeWechatQr" /> 删除当前二维码</label></div></div>`
+    ? `<div class="settings-qr-preview"><img loading="lazy" decoding="async" src="${escapeHtml(settings.wechatQrUrl)}" alt="当前微信二维码" /><div><strong>当前微信二维码</strong><span>更换二维码后，保存网站设置才会生效。</span><label class="settings-qr-remove"><input type="checkbox" name="removeWechatQr" /> 删除当前二维码</label></div></div>`
     : '<p class="form-hint settings-qr-empty">暂未上传微信二维码。上传后会显示在访客的“查看咨询方式”弹窗中。</p>';
   return `${adminPageHead('网站设置', '修改公开显示的联系方式、所在区域和首页说明。')}
     <form id="settingsForm" class="settings-form">
@@ -2763,7 +2763,7 @@ function renderPhotoMatches(container, result) {
       const pet = petById(item.petId);
       const cover = pet ? mediaUrl(coverMedia(pet)) : '';
       return `<div class="match-photo-hit">
-        ${cover ? `<img src="${escapeHtml(cover)}" alt="" />` : ''}
+        ${cover ? `<img loading="lazy" decoding="async" src="${escapeHtml(cover)}" alt="" />` : ''}
         <div>
           <strong>${escapeHtml(item.petName || pet?.name || '')}</strong>
           <p>画面相似度 ${(Number(item.similarity) * 100).toFixed(0)}%</p>

@@ -15,7 +15,10 @@ function fixture(base = 'https://example.test/yard/') {
   const listeners = new Map();
   const storage = new Map();
   const preference = { matches: false };
+  const entries = [];
+  const transitions = [];
   const window = {
+    innerHeight: 900,
     location: { href: base },
     sessionStorage: {
       getItem: key => storage.get(key) ?? null,
@@ -26,12 +29,20 @@ function fixture(base = 'https://example.test/yard/') {
     matchMedia: () => preference,
     addEventListener: (type, handler) => listeners.set(type, handler)
   };
-  const context = vm.createContext({ URL, window, document: { currentScript: { src: `${base}page-transitions.js` } } });
+  const context = vm.createContext({ URL, window, document: { currentScript: { src: `${base}page-transitions.js` }, querySelectorAll: () => entries } });
   vm.runInContext(source, context, { filename: 'page-transitions.js', timeout: 1000 });
 
   function emit(type, from, to, navigationType = 'push', options = {}) {
     let skipped = 0;
-    const transition = options.noTransition ? null : { types: options.noTypes ? undefined : new Set(), skipTransition: () => skipped++ };
+    const transition = options.noTransition
+      ? null
+      : {
+          types: options.noTypes ? undefined : new Set(),
+          skipTransition: () => skipped++,
+          finished: { then: (done, failed) => Object.assign(transition, { done, failed }) },
+          ready: { catch: failed => Object.assign(transition, { rejectedReady: failed }) }
+        };
+    transitions.push(transition);
     window.location.href = type === 'pageswap' ? from || base : to || base;
     const activation = options.noActivation
       ? undefined
@@ -44,7 +55,26 @@ function fixture(base = 'https://example.test/yard/') {
     listeners.get(type)({ viewTransition: transition, activation });
     return { types: [...(transition?.types || [])], skipped };
   }
-  return { emit, preference, window, listeners, storage, url: file => new URL(file, base).href };
+  return { emit, preference, window, listeners, storage, entries, transitions, url: file => new URL(file, base).href };
+}
+
+function entry(rect = {}) {
+  return {
+    style: { viewTransitionName: '' },
+    classList: {
+      values: new Set(),
+      add(value) {
+        this.values.add(value);
+      },
+      remove(value) {
+        this.values.delete(value);
+      },
+      contains(value) {
+        return this.values.has(value);
+      }
+    },
+    getBoundingClientRect: () => ({ width: 200, height: 120, top: 100, bottom: 220, ...rect })
+  };
 }
 
 function test(label, run) {
@@ -168,6 +198,78 @@ test('缺少 NavigationActivation、Navigation API 或转场类型 API 时保留
   delete site.window.navigation;
   assert.deepEqual(site.emit('pagereveal', site.url('pets.html'), site.url('about.html')), { types: [], skipped: 1 });
   assert.deepEqual([...site.listeners.keys()], ['pageswap', 'pagereveal']);
+});
+
+test('仅首屏可见内容同步入场、唯一命名且最多六块，不读取图片加载状态', () => {
+  const site = fixture();
+  const hidden = [entry({ width: 0 }), entry({ height: 0 }), entry({ top: 1000, bottom: 1120 }), entry({ top: -300, bottom: -180 })];
+  const visible = Array.from({ length: 9 }, () => entry());
+  site.entries.push(...hidden, ...visible);
+  site.emit('pagereveal', site.url('pets.html'), site.url('about.html'));
+  hidden.forEach(element => assert.equal(element.style.viewTransitionName, ''));
+  visible.forEach((element, index) => assert.equal(element.style.viewTransitionName, index < 6 ? `site-entry-${index}` : ''));
+  assert.equal(typeof site.transitions.at(-1).rejectedReady, 'function');
+});
+
+test('完成、跳过、被新导航打断时恢复原命名与样式，旧回调不清除下一次入场', () => {
+  const site = fixture();
+  const element = entry();
+  element.style.viewTransitionName = 'original-name';
+  site.entries.push(element);
+  site.emit('pagereveal', site.url('pets.html'), site.url('about.html'));
+  const first = site.transitions.at(-1);
+  site.emit('pageswap', site.url('about.html'), site.url('pets.html'));
+  assert.equal(element.style.viewTransitionName, 'original-name');
+  assert.equal(element.classList.values.size, 0);
+  site.emit('pagereveal', site.url('about.html'), site.url('pets.html'));
+  first.done();
+  assert.equal(element.style.viewTransitionName, 'site-entry-0');
+  site.transitions.at(-1).failed();
+  assert.equal(element.style.viewTransitionName, 'original-name');
+  assert.equal(element.classList.values.size, 0);
+});
+
+test('减弱动效与无原生转场时内容默认可见，不添加入场标记', () => {
+  const site = fixture();
+  const element = entry();
+  site.entries.push(element);
+  site.preference.matches = true;
+  site.emit('pagereveal', site.url('pets.html'), site.url('about.html'));
+  site.preference.matches = false;
+  site.emit('pagereveal', site.url('pets.html'), site.url('about.html'), 'push', { noTransition: true });
+  assert.equal(element.style.viewTransitionName, '');
+  assert.equal(element.classList.values.size, 0);
+});
+
+test('首页转场完成后不重启原有首次打开动画，避免额外等待', () => {
+  const site = fixture();
+  const element = entry();
+  element.classList.add('reveal');
+  site.entries.push(element);
+  site.emit('pagereveal', site.url('pets.html'), site.url('index.html'));
+  site.transitions.at(-1).done();
+  assert.equal(element.classList.contains('page-entry-active'), false);
+  assert.equal(element.classList.contains('page-entry-settled'), true);
+  assert.equal(element.style.viewTransitionName, '');
+});
+
+test('七页和动态生成的图片均为非阻塞加载，保留首屏内容编排入口', () => {
+  for (const file of files) {
+    const html = fs.readFileSync(path.join(__dirname, '..', file), 'utf8');
+    assert.match(html, /data-page-entry/);
+    for (const [image] of html.matchAll(/<img\b[^>]*>/g)) {
+      assert.match(image, /loading="lazy"/);
+      assert.match(image, /decoding="async"/);
+    }
+  }
+  const app = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
+  for (const [image] of app.matchAll(/<img\b[^>]*>/g)) {
+    assert.match(image, /loading="lazy"/);
+    assert.match(image, /decoding="async"/);
+  }
+  const css = fs.readFileSync(path.join(__dirname, '..', 'styles.css'), 'utf8');
+  assert.match(css, /site-content-right 360ms/);
+  assert.match(css, /site-content-left/);
 });
 
 console.log(`\n${passed} groups passed; no network requests.`);
