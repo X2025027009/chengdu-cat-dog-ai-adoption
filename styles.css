@@ -1371,11 +1371,11 @@ body[data-page="about"] .about-section { padding: 34px 0 40px; background: var(-
   :root:active-view-transition-type(site-forward)::view-transition-new(root) { animation: site-enter-right 360ms cubic-bezier(.22, 1, .36, 1) both; }
   :root:active-view-transition-type(site-backward)::view-transition-old(root) { animation: site-exit-right 360ms cubic-bezier(.22, 1, .36, 1) both; }
   :root:active-view-transition-type(site-backward)::view-transition-new(root) { animation: site-enter-left 360ms cubic-bezier(.22, 1, .36, 1) both; }
-  /* 内容快照与整页同时从同侧进场；仅叠加轻微的位移与收拢，无错峰等待。 */
+  /* 水平移动与整页同向；内容在横移中浮出，横移结束后留 160ms 收拢。 */
   .page-entry-active, .page-entry-settled { animation: none; }
   ::view-transition-new(site-entry-0), ::view-transition-new(site-entry-1), ::view-transition-new(site-entry-2),
   ::view-transition-new(site-entry-3), ::view-transition-new(site-entry-4), ::view-transition-new(site-entry-5) {
-    animation: site-content-right 360ms cubic-bezier(.22, 1, .36, 1) both;
+    animation: site-content-right 360ms cubic-bezier(.22, 1, .36, 1) both, site-content-pop 420ms cubic-bezier(.2, .65, .25, 1) 100ms both;
     mix-blend-mode: normal;
   }
   :root:active-view-transition-type(site-backward)::view-transition-new(site-entry-0),
@@ -1383,12 +1383,13 @@ body[data-page="about"] .about-section { padding: 34px 0 40px; background: var(-
   :root:active-view-transition-type(site-backward)::view-transition-new(site-entry-2),
   :root:active-view-transition-type(site-backward)::view-transition-new(site-entry-3),
   :root:active-view-transition-type(site-backward)::view-transition-new(site-entry-4),
-  :root:active-view-transition-type(site-backward)::view-transition-new(site-entry-5) { animation-name: site-content-left; }
+  :root:active-view-transition-type(site-backward)::view-transition-new(site-entry-5) { animation-name: site-content-left, site-content-pop; }
 }
 @keyframes site-exit-left { from { opacity: 1; transform: translateX(0); } to { opacity: .5; transform: translateX(-26%); } }
 @keyframes site-enter-right { from { transform: translateX(100%); } to { transform: translateX(0); } }
 @keyframes site-exit-right { from { opacity: 1; transform: translateX(0); } to { opacity: .5; transform: translateX(26%); } }
 @keyframes site-enter-left { from { transform: translateX(-100%); } to { transform: translateX(0); } }
-@keyframes site-content-right { from { opacity: .4; transform: translateX(calc(100vw + 32px)) scale(.975); } to { opacity: 1; transform: translateX(0) scale(1); } }
-@keyframes site-content-left { from { opacity: .4; transform: translateX(calc(-100vw - 32px)) scale(.975); } to { opacity: 1; transform: translateX(0) scale(1); } }
+@keyframes site-content-right { from { translate: 100vw 0; } to { translate: 0 0; } }
+@keyframes site-content-left { from { translate: -100vw 0; } to { translate: 0 0; } }
+@keyframes site-content-pop { from { opacity: 0; transform: translateY(64px) scale(.94); } to { opacity: 1; transform: translateY(0) scale(1); } }
 

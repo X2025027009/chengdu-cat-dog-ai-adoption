@@ -272,4 +272,14 @@ test('七页和动态生成的图片均为非阻塞加载，保留首屏内容�
   assert.match(css, /site-content-left/);
 });
 
+test('内容独立浮出而非再次横移，前后退保留同一弹出节奏与相反水平方向', () => {
+  const css = fs.readFileSync(path.join(__dirname, '..', 'styles.css'), 'utf8');
+  assert.match(css, /site-content-right 360ms[^;]+site-content-pop 420ms[^;]+100ms both/);
+  assert.match(css, /animation-name: site-content-left, site-content-pop/);
+  assert.match(css, /@keyframes site-content-right \{ from \{ translate: 100vw 0;/);
+  assert.match(css, /@keyframes site-content-left \{ from \{ translate: -100vw 0;/);
+  assert.match(css, /@keyframes site-content-pop \{ from \{ opacity: 0; transform: translateY\(64px\) scale\(\.94\);/);
+  assert.doesNotMatch(css, /calc\(100vw \+ 32px\)/);
+});
+
 console.log(`\n${passed} groups passed; no network requests.`);
