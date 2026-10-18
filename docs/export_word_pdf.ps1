@@ -37,6 +37,21 @@ try {
     $toc.Update()
   }
   $doc.Fields.Update() | Out-Null
+  # Word may regenerate TOC paragraphs with direct spacing that overrides styles.
+  # Keep the full two-level outline on one readable page, then refresh only pages.
+  foreach ($toc in $doc.TablesOfContents) {
+    $toc.Range.Font.Name = "Microsoft YaHei"
+    $toc.Range.Font.NameFarEast = "Microsoft YaHei"
+    $toc.Range.Font.Size = 11
+    $toc.Range.Font.Color = 0
+    $toc.Range.ParagraphFormat.SpaceBefore = 0
+    $toc.Range.ParagraphFormat.SpaceAfter = 4
+    $toc.Range.ParagraphFormat.LineSpacingRule = 0
+  }
+  $doc.Repaginate()
+  foreach ($toc in $doc.TablesOfContents) {
+    $toc.UpdatePageNumbers()
+  }
   $doc.Repaginate()
   $doc.Save()
 

@@ -2,7 +2,7 @@
   "name": "chengdu-cat-dog",
   "private": true,
   "version": "1.0.0",
-  "description": "成都猫狗小院 · 流浪猫狗领养平台（传智杯 AI WEB 网页开发挑战赛参赛作品）",
+  "description": "成都猫狗小院 · 流浪猫狗领养平台（传智杯 AI创新应用挑战赛参赛作品）",
   "scripts": {
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
