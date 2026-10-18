@@ -207,7 +207,8 @@ def main():
     cover = build / "cover-team-photo.png"
     with Image.open(ROOT.parent / "assets/team-photo.jpg") as image:
         image.convert("RGB").save(cover)
-    doc.add_picture(str(cover), width=Cm(16.0))
+    cover_picture = doc.add_picture(str(cover), width=Cm(16.0))
+    cover_picture._inline.docPr.set("descr", "成都猫狗小院志愿者与猫狗合影，横幅呼吁反对虐待动物")
     doc.add_page_break()
     paragraph = doc.add_paragraph()
     font(paragraph.add_run("目录"), 20, True)
@@ -239,7 +240,8 @@ def main():
         if image:
             paragraph = doc.add_paragraph()
             paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            paragraph.add_run().add_picture(str(ROOT / image.group(2)), width=Cm(16.4))
+            picture = paragraph.add_run().add_picture(str(ROOT / image.group(2)), width=Cm(16.4))
+            picture._inline.docPr.set("descr", image.group(1))
             index += 1
             continue
         heading = re.match(r"^(#{2,3})\s+(.+)$", line)

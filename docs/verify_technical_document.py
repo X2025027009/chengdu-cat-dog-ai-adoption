@@ -46,6 +46,9 @@ def main():
     with ZipFile(DOCX) as archive:
         document = etree.fromstring(archive.read("word/document.xml"))
         styles_xml = etree.fromstring(archive.read("word/styles.xml"))
+    picture_properties = document.xpath("//*[local-name()='docPr']")
+    assert len(picture_properties) == 4, f"Picture count: {len(picture_properties)}"
+    assert all((picture.get("descr") or "").strip() for picture in picture_properties), "Missing picture alt text"
     heading_styles = {
         style.get(qn) for style in styles_xml
         if style.xpath('./w:pPr/w:outlineLvl[@w:val="0" or @w:val="1"]', namespaces=NS)

@@ -16,9 +16,11 @@
 
 ### 十分钟复现路径
 
-先从委托方提供的真实仓库地址获取代码；这里不虚构公开仓库 URL。建议使用 Node.js 24 LTS 与 npm，依赖版本以 `package-lock.json` 为准。
+公开仓库：[X2025027009/chengdu-cat-dog-ai-adoption](https://github.com/X2025027009/chengdu-cat-dog-ai-adoption)。建议使用 Node.js 24 LTS 与 npm，依赖版本以 `package-lock.json` 为准。
 
 ```bash
+git clone https://github.com/X2025027009/chengdu-cat-dog-ai-adoption.git
+cd chengdu-cat-dog-ai-adoption
 node --version
 npm --version
 npm ci
@@ -147,7 +149,7 @@ npm test
 - `npm run test:online`：`check-release-sync.cjs`、`check-ai-preview.cjs`，只读线上检查。
 - `npm run test:live`：`probe-browser-path.cjs`、`test-ai-chat.cjs`、`test-ai-tools.cjs`、`verify-anon-lockdown.cjs`。会向线上写入数据或消耗额度，仅由委托方部署后执行；预期拒绝的匿名写探针也可能在权限回归时落库。
 
-`test:release:offline` 比对发布源，不属于默认回归，本轮未运行。`health:tools -- --deep` 可能建索引并调用模型，不能当作无副作用检查。
+`test:release:offline` 仅比对本地发布源，不属于默认回归；通过不代表已部署。`health:tools -- --deep` 可能建索引并调用模型，不能当作无副作用检查。
 
 ## 素材与性能
 
@@ -157,9 +159,11 @@ npm test
 
 ## 部署
 
-先审核根目录源码，再由委托方同步发布源与部署。Codex 不修改 `release/`、不部署、不推送。云资源与权限配置由委托方结合 [后端说明](FORMAL-BACKEND.md) 及实际环境核对。
+先审核根目录源码；本次委托方已明确由 Harness 负责 `release/` 同步和静态前端发布，Codex 负责源码、测试、文档及 GitHub 配置，并仅在明确授权后推送。Codex 不修改 `release/` 或执行云端部署。云函数、数据库和权限变更不属于静态发布，需另行核对实际需求与授权，参见 [后端说明](FORMAL-BACKEND.md)。
 
-须整体同步七个 HTML、五个共享 JS、`styles.css` 与 `assets/`，尤其注意新增动效脚本和 WebP 替换。部署后委托方执行只读线上检查，再明确确认是否执行线上写入测试。发布源与本地不同属于待发布状态，不能据此认定源码缺陷。
+须整体同步七个 HTML、四个共享 JS、`styles.css` 与 `assets/`，尤其注意新增动效脚本和 WebP 替换。部署后由委托方或其授权发布者执行只读线上检查；线上写入测试仍仅由委托方明确确认后执行。发布源与本地不同属于待发布状态，不能据此认定源码缺陷。
+
+GitHub 的“离线源码回归”工作流在 main 推送、拉取请求或手动触发时，使用 Node.js 24 按锁文件安装依赖，再执行 lint、格式、多页、仓库合规和 `npm test` 五项检查。获取源码和安装依赖需要网络，但测试不调用业务云端或模型；工作流只有仓库内容只读权限，不部署、不配置云凭据，不运行 `test:online` 或 `test:live`。工作流结果以 GitHub 实际运行记录为准，本地通过不代表 CI 已通过。
 
 ## 参赛者与协作分工
 
