@@ -102,6 +102,10 @@ function validatePage(page) {
   check(`${page.file} has the shared site navigation`, Boolean(navMatch));
   const navLinks = navMatch ? tags(navMatch).filter(tag => tag.name === 'a') : [];
   check(
+    `${page.file} navigation order agrees with horizontal transition order`,
+    JSON.stringify(navLinks.map(link => localReference(link.attrs.href || '', page.file)?.file)) === JSON.stringify(pages.map(item => item.file))
+  );
+  check(
     `${page.file} navigation uses real page links`,
     navLinks.length > 0 &&
       navLinks.every(link => {
@@ -114,7 +118,9 @@ function validatePage(page) {
   check(`${page.file} active navigation points to itself`, activeLinks.length === 1 && localReference(activeLinks[0].attrs.href || '', page.file)?.file === page.file);
 
   const scripts = elements.filter(tag => tag.name === 'script' && tag.attrs.src).map(tag => localReference(tag.attrs.src, page.file)?.file);
-  for (const script of ['site-config.js', 'app.js']) check(`${page.file} loads shared ${script}`, scripts.includes(script));
+  for (const script of ['site-config.js', 'app.js', 'page-transitions.js']) check(`${page.file} loads shared ${script}`, scripts.includes(script));
+  const transitionScript = tags(html.match(/<head\b[^>]*>([\s\S]*?)<\/head>/i)?.[1] || '').find(tag => tag.name === 'script' && tag.attrs.src === 'page-transitions.js');
+  check(`${page.file} registers transitions before the first render`, Boolean(transitionScript) && !['defer', 'async', 'type'].some(attribute => Object.hasOwn(transitionScript.attrs, attribute)));
   for (const tag of elements) {
     for (const attribute of ['href', 'src', 'poster']) {
       if (!tag.attrs[attribute]) continue;

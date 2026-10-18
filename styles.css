@@ -1360,3 +1360,20 @@ body[data-page="about"] .about-section { padding: 34px 0 40px; background: var(-
 @keyframes pet-photo-pop { from { opacity: 0; transform: translateY(12px) scale(.94); } to { opacity: 1; transform: none; } }
 @keyframes pet-info-rise { from { opacity: 0; transform: translateY(72px); } to { opacity: 1; transform: none; } }
 
+/* 跨文档水平转场：只移动浏览器快照，不改变真实页面布局与普通链接。 */
+@media (prefers-reduced-motion: no-preference) {
+  @view-transition { navigation: auto; }
+  ::view-transition-group(root) { animation: none; }
+  ::view-transition-old(root), ::view-transition-new(root) { animation: none; mix-blend-mode: normal; }
+  ::view-transition-old(root) { z-index: 1; }
+  ::view-transition-new(root) { z-index: 2; }
+  :root:active-view-transition-type(site-forward)::view-transition-old(root) { animation: site-exit-left 360ms cubic-bezier(.22, 1, .36, 1) both; }
+  :root:active-view-transition-type(site-forward)::view-transition-new(root) { animation: site-enter-right 360ms cubic-bezier(.22, 1, .36, 1) both; }
+  :root:active-view-transition-type(site-backward)::view-transition-old(root) { animation: site-exit-right 360ms cubic-bezier(.22, 1, .36, 1) both; }
+  :root:active-view-transition-type(site-backward)::view-transition-new(root) { animation: site-enter-left 360ms cubic-bezier(.22, 1, .36, 1) both; }
+}
+@keyframes site-exit-left { from { opacity: 1; transform: translateX(0); } to { opacity: .5; transform: translateX(-26%); } }
+@keyframes site-enter-right { from { transform: translateX(100%); } to { transform: translateX(0); } }
+@keyframes site-exit-right { from { opacity: 1; transform: translateX(0); } to { opacity: .5; transform: translateX(26%); } }
+@keyframes site-enter-left { from { transform: translateX(-100%); } to { transform: translateX(0); } }
+

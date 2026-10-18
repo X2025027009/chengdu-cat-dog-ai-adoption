@@ -8,7 +8,7 @@
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "test": "node tools/check-admin-settings.cjs && node tools/check-multipage.cjs && node tools/check-ui-redesign.cjs && node tools/test-local-review.cjs && node tools/check-repo-compliance.cjs && npm run test:unit",
+    "test": "node tools/check-admin-settings.cjs && node tools/check-multipage.cjs && node tools/check-ui-redesign.cjs && node tools/test-page-transitions.cjs && node tools/test-local-review.cjs && node tools/check-repo-compliance.cjs && npm run test:unit",
     "test:unit": "node tools/test-knowledge.cjs && node tools/test-vision-guards.cjs && node tools/test-tc3-signing.cjs && node tools/test-wecom-notify.cjs && node tools/test-admin-applicant-edit.cjs",
     "test:online": "node tools/check-release-sync.cjs && node tools/check-ai-preview.cjs",
     "test:live": "node tools/probe-browser-path.cjs && node tools/test-ai-chat.cjs && node tools/test-ai-tools.cjs && node tools/verify-anon-lockdown.cjs",

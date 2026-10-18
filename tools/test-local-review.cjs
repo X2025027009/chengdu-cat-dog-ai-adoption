@@ -273,7 +273,20 @@ async function offlineRequest(method, url, host = '127.0.0.1:4173') {
 
   await test('预览服务器只允许公开页面、脚本、样式和素材', () => {
     assert.equal(previewRelativePath('/'), 'index.html');
-    for (const file of ['index.html', 'pets.html', 'match.html', 'adoption.html', 'stories.html', 'about.html', 'admin.html', 'app.js', 'styles.css', 'site-config.js', 'assets/team-photo.jpg']) {
+    for (const file of [
+      'index.html',
+      'pets.html',
+      'match.html',
+      'adoption.html',
+      'stories.html',
+      'about.html',
+      'admin.html',
+      'app.js',
+      'styles.css',
+      'site-config.js',
+      'page-transitions.js',
+      'assets/team-photo.jpg'
+    ]) {
       assert.equal(previewRelativePath(`/${file}?review=1`), file);
     }
     for (const target of [

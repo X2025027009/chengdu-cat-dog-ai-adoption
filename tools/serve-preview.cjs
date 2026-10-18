@@ -9,7 +9,7 @@ const path = require('node:path');
 
 const ROOT = fs.realpathSync(path.resolve(__dirname, '..'));
 const HOST = '127.0.0.1';
-const PUBLIC_FILES = new Set(['index.html', 'pets.html', 'match.html', 'adoption.html', 'stories.html', 'about.html', 'admin.html', 'app.js', 'styles.css', 'site-config.js']);
+const PUBLIC_FILES = new Set(['index.html', 'pets.html', 'match.html', 'adoption.html', 'stories.html', 'about.html', 'admin.html', 'app.js', 'styles.css', 'site-config.js', 'page-transitions.js']);
 const MIME_TYPES = {
   '.html': 'text/html; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',
